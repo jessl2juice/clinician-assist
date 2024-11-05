@@ -9,10 +9,10 @@ class LoginForm(FlaskForm):
 
 class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired(), Length(min=12)])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=8)])
     role = SelectField('Role', choices=[('client', 'Client'), 
-                                      ('therapist', 'Therapist'), 
-                                      ('admin', 'Admin')])
+                                       ('therapist', 'Therapist'), 
+                                       ('admin', 'Admin')])
     
     def validate_password(self, field):
         if not re.search(r'[A-Z]', field.data):

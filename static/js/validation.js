@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const password = passwordField.value;
                 
                 // Password validation
-                if (password.length < 12) {
+                if (password.length < 8) {
                     event.preventDefault();
-                    alert('Password must be at least 12 characters long');
+                    alert('Password must be at least 8 characters long');
                     return;
                 }
                 
