@@ -10,7 +10,7 @@ def send_verification_email(user_email, verification_token):
                              _external=True)
     
     message = Mail(
-        from_email='noreply@hipaasecure.com',
+        from_email='info@l2juice.com',
         to_emails=user_email,
         subject='Verify Your Email - HIPAA Secure',
         html_content=f'''
