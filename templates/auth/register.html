@@ -6,8 +6,8 @@
         <div class="card login-card">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h1 class="brand-title">HIPAA Secure</h1>
-                    <p class="text-muted">Secure Healthcare Management System</p>
+                    <h1 class="brand-title">Register</h1>
+                    <p class="text-muted">Create your HIPAA Secure account</p>
                 </div>
                 <form method="POST">
                     {{ form.csrf_token }}
@@ -18,12 +18,19 @@
                     <div class="mb-4">
                         {{ form.password.label(class="form-label") }}
                         {{ form.password(class="form-control form-control-lg", placeholder="Enter your password") }}
+                        <div class="form-text">
+                            Password must be at least 12 characters long and include uppercase, lowercase, numbers, and special characters.
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        {{ form.role.label(class="form-label") }}
+                        {{ form.role(class="form-select form-select-lg") }}
                     </div>
                     <div class="d-grid gap-2 mt-5">
-                        <button type="submit" class="btn btn-primary btn-lg">Sign In</button>
+                        <button type="submit" class="btn btn-primary btn-lg">Register</button>
                     </div>
                     <div class="text-center mt-4">
-                        <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+                        <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
                     </div>
                 </form>
             </div>
