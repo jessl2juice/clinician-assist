@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, BooleanField
-from wtforms.validators import DataRequired, Email, Length, ValidationError
+from wtforms.validators import DataRequired, Email, Length, ValidationError, Optional
 import re
 
 class LoginForm(FlaskForm):
@@ -30,7 +30,7 @@ class EditUserForm(FlaskForm):
                                       ('therapist', 'Therapist'), 
                                       ('admin', 'Admin')])
     is_active = BooleanField('Active')
-    password = PasswordField('New Password', validators=[Length(min=8)])
+    password = PasswordField('New Password', validators=[Optional(), Length(min=8)])
 
     def validate_password(self, field):
         if field.data:  # Only validate if password is being changed

@@ -25,8 +25,15 @@ document.addEventListener('DOMContentLoaded', function() {
     forms.forEach(form => {
         form.addEventListener('submit', function(event) {
             const passwordField = form.querySelector('input[type="password"]');
-            if (passwordField) {
+            const isEditForm = form.getAttribute('id') === 'edit-user-form';
+            
+            if (passwordField && (!isEditForm || passwordField.value)) {
                 const password = passwordField.value;
+                
+                // Skip validation for edit form if password is empty
+                if (isEditForm && !password) {
+                    return;
+                }
                 
                 // Password validation
                 if (password.length < 8) {

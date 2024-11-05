@@ -7,7 +7,7 @@
             <div class="card">
                 <div class="card-body">
                     <h2 class="card-title">Edit User</h2>
-                    <form method="POST">
+                    <form method="POST" id="edit-user-form">
                         {{ form.csrf_token }}
                         <div class="mb-3">
                             {{ form.email.label(class="form-label") }}
@@ -34,7 +34,7 @@
                         <div class="mb-3">
                             {{ form.password.label(class="form-label") }}
                             {{ form.password(class="form-control") }}
-                            <div class="form-text">Leave blank to keep current password</div>
+                            <div class="form-text">Leave blank to keep current password. New password must be at least 8 characters if provided.</div>
                             {% if form.password.errors %}
                             <div class="invalid-feedback d-block">
                                 {% for error in form.password.errors %}
