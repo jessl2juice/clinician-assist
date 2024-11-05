@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from models import User
+from models import User, AuditLog
 from extensions import db
 from utils import log_audit
 from functools import wraps
@@ -23,6 +23,13 @@ def admin_required(f):
 def user_list():
     users = User.query.all()
     return render_template('admin/users.html', users=users)
+
+@admin.route('/audit-logs')
+@login_required
+@admin_required
+def audit_logs():
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
+    return render_template('admin/audit_logs.html', audit_logs=logs)
 
 @admin.route('/users/<int:user_id>/toggle_active', methods=['POST'])
 @login_required
