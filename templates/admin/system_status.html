@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>System Status</h1>
+    
+    <!-- User Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">User Overview</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Total Users:</span>
+                        <span class="badge bg-primary">{{ metrics.total_users }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Active Users:</span>
+                        <span class="badge bg-success">{{ metrics.active_users }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Users by Role</h5>
+                    {% for role, count in metrics.users_by_role.items() %}
+                    <div class="d-flex justify-content-between align-items-center {% if not loop.last %}mb-3{% endif %}">
+                        <span>{{ role|title }}s:</span>
+                        <span class="badge bg-info">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Recent Activity (24h)</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>New Registrations:</span>
+                        <span class="badge bg-warning">{{ metrics.recent_registrations }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>User Logins:</span>
+                        <span class="badge bg-success">{{ metrics.recent_logins }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Activity -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Audit Log Overview</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Total Actions:</span>
+                        <span class="badge bg-primary">{{ metrics.total_actions }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Recent Actions (24h):</span>
+                        <span class="badge bg-info">{{ metrics.recent_actions }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Most Common Actions</h5>
+                    {% for action, count in metrics.common_actions %}
+                    <div class="d-flex justify-content-between align-items-center {% if not loop.last %}mb-3{% endif %}">
+                        <span>{{ action|replace('_', ' ')|title }}:</span>
+                        <span class="badge bg-secondary">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex gap-3">
+                        <a href="{{ url_for('admin.user_list') }}" class="btn btn-primary">
+                            <i class="bi bi-people"></i> Manage Users
+                        </a>
+                        <a href="{{ url_for('admin.audit_logs') }}" class="btn btn-secondary">
+                            <i class="bi bi-clock-history"></i> View Audit Logs
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

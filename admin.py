@@ -5,6 +5,8 @@ from extensions import db
 from utils import log_audit
 from functools import wraps
 from forms import EditUserForm
+from datetime import datetime, timedelta
+from sqlalchemy import func
 
 admin = Blueprint('admin', __name__)
 
@@ -30,6 +32,56 @@ def user_list():
 def audit_logs():
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     return render_template('admin/audit_logs.html', audit_logs=logs)
+
+@admin.route('/system-status')
+@login_required
+@admin_required
+def system_status():
+    # User statistics
+    total_users = User.query.count()
+    active_users = User.query.filter_by(is_active=True).count()
+    users_by_role = db.session.query(
+        User.role, 
+        func.count(User.id)
+    ).group_by(User.role).all()
+
+    # Recent activity
+    last_24h = datetime.utcnow() - timedelta(hours=24)
+    recent_logins = AuditLog.query.filter(
+        AuditLog.action == 'login',
+        AuditLog.timestamp > last_24h
+    ).count()
+
+    recent_registrations = User.query.filter(
+        User.created_at > last_24h
+    ).count()
+
+    # Audit log statistics
+    total_actions = AuditLog.query.count()
+    recent_actions = AuditLog.query.filter(
+        AuditLog.timestamp > last_24h
+    ).count()
+
+    # Most common actions
+    common_actions = db.session.query(
+        AuditLog.action,
+        func.count(AuditLog.id).label('count')
+    ).group_by(AuditLog.action).order_by(
+        func.count(AuditLog.id).desc()
+    ).limit(5).all()
+
+    metrics = {
+        'total_users': total_users,
+        'active_users': active_users,
+        'users_by_role': dict(users_by_role),
+        'recent_logins': recent_logins,
+        'recent_registrations': recent_registrations,
+        'total_actions': total_actions,
+        'recent_actions': recent_actions,
+        'common_actions': common_actions
+    }
+
+    return render_template('admin/system_status.html', metrics=metrics)
 
 @admin.route('/users/<int:user_id>/toggle_active', methods=['POST'])
 @login_required
