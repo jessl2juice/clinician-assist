@@ -56,6 +56,29 @@
     color: var(--bs-body-color);
 }
 
+/* Password toggle button styling */
+.password-field-wrapper {
+    position: relative;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    color: var(--bs-secondary);
+    cursor: pointer;
+    z-index: 10;
+    transition: color 0.2s ease-in-out;
+}
+
+.password-toggle-btn:hover {
+    color: var(--bs-primary);
+}
+
 /* Button styling */
 .btn {
     padding: 0.75rem 1.5rem;

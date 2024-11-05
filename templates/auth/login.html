@@ -17,7 +17,12 @@
                     </div>
                     <div class="mb-4">
                         {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control form-control-lg", placeholder="Enter your password") }}
+                        <div class="password-field-wrapper">
+                            {{ form.password(class="form-control form-control-lg", placeholder="Enter your password") }}
+                            <button type="button" class="password-toggle-btn" aria-label="Toggle password visibility">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="d-grid gap-2 mt-5">
                         <button type="submit" class="btn btn-primary btn-lg">Sign In</button>

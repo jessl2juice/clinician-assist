@@ -1,4 +1,25 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Password visibility toggle
+    const passwordToggleBtns = document.querySelectorAll('.password-toggle-btn');
+    
+    passwordToggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const passwordField = this.parentElement.querySelector('input');
+            const icon = this.querySelector('i');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                passwordField.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        });
+    });
+
+    // Form validation
     const forms = document.querySelectorAll('form');
     
     forms.forEach(form => {
