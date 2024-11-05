@@ -12,9 +12,9 @@ def send_verification_email(user_email, verification_token):
     message = Mail(
         from_email='info@l2juice.com',
         to_emails=user_email,
-        subject='Verify Your Email - HIPAA Secure',
+        subject='Verify Your Email - Clinician Assist',
         html_content=f'''
-        <h2>Welcome to HIPAA Secure!</h2>
+        <h2>Welcome to Clinician Assist!</h2>
         <p>Thank you for registering. Please verify your email address by clicking the link below:</p>
         <p><a href="{verification_url}">Verify Email Address</a></p>
         <p>This link will expire in 24 hours.</p>
