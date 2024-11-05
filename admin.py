@@ -4,6 +4,7 @@ from models import User
 from extensions import db
 from utils import log_audit
 from functools import wraps
+from forms import EditUserForm
 
 admin = Blueprint('admin', __name__)
 
@@ -37,6 +38,33 @@ def toggle_user_active(user_id):
         log_audit(current_user.id, f'user_{action}', f'User {user.email} {action}', request.remote_addr)
         flash(f'User {action} successfully.', 'success')
     return redirect(url_for('admin.user_list'))
+
+@admin.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = EditUserForm(obj=user)
+    
+    if form.validate_on_submit():
+        if user.id == current_user.id and form.role.data != 'admin':
+            flash('You cannot change your own admin role.', 'danger')
+            return redirect(url_for('admin.user_list'))
+            
+        user.email = form.email.data
+        user.role = form.role.data
+        user.is_active = form.is_active.data
+        
+        if form.password.data:
+            user.set_password(form.password.data)
+            log_audit(current_user.id, 'password_changed', f'Password changed for user {user.email}', request.remote_addr)
+            
+        db.session.commit()
+        log_audit(current_user.id, 'user_edited', f'User {user.email} details updated', request.remote_addr)
+        flash('User updated successfully.', 'success')
+        return redirect(url_for('admin.user_list'))
+        
+    return render_template('admin/edit_user.html', form=form, user=user)
 
 @admin.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
