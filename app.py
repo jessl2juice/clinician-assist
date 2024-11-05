@@ -5,6 +5,7 @@ from config import Config
 from extensions import db, login_manager, session as flask_session
 from models import User
 from auth import auth
+from admin import admin
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -21,6 +22,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 app.register_blueprint(auth, url_prefix='/auth')
+app.register_blueprint(admin, url_prefix='/admin')
 
 @app.before_request
 def before_request():

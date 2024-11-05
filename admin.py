@@ -1,0 +1,54 @@
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from models import User
+from extensions import db
+from utils import log_audit
+from functools import wraps
+
+admin = Blueprint('admin', __name__)
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            flash('You do not have permission to access this page.', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@admin.route('/users')
+@login_required
+@admin_required
+def user_list():
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@admin.route('/users/<int:user_id>/toggle_active', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_active(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('You cannot deactivate your own account.', 'danger')
+    else:
+        user.is_active = not user.is_active
+        db.session.commit()
+        action = 'activated' if user.is_active else 'deactivated'
+        log_audit(current_user.id, f'user_{action}', f'User {user.email} {action}', request.remote_addr)
+        flash(f'User {action} successfully.', 'success')
+    return redirect(url_for('admin.user_list'))
+
+@admin.route('/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'danger')
+    else:
+        email = user.email
+        db.session.delete(user)
+        db.session.commit()
+        log_audit(current_user.id, 'user_deleted', f'User {email} deleted', request.remote_addr)
+        flash('User deleted successfully.', 'success')
+    return redirect(url_for('admin.user_list'))

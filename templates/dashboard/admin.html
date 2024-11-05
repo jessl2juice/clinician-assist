@@ -1,11 +1,36 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Admin Dashboard</h1>
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Welcome, {{ current_user.email }}</h5>
-        <p class="card-text">You are logged in as an administrator.</p>
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">User Management</h5>
+                    <p class="card-text">Manage system users, their roles, and permissions.</p>
+                    <a href="{{ url_for('admin.user_list') }}" class="btn btn-primary">Manage Users</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">System Status</h5>
+                    <p class="card-text">View system metrics and performance.</p>
+                    <p class="card-text"><small class="text-muted">Coming soon</small></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Audit Logs</h5>
+                    <p class="card-text">Review system audit logs and user activities.</p>
+                    <p class="card-text"><small class="text-muted">Coming soon</small></p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
