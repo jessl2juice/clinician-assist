@@ -18,9 +18,19 @@
                 <div class="card-body">
                     <h5 class="card-title">Quick Actions</h5>
                     <div class="d-grid gap-3">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                            <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
+                        {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('admin.user_list') }}" class="btn btn-primary">
+                            <i class="bi bi-people me-2"></i>Admin Dashboard
                         </a>
+                        {% elif current_user.role == 'therapist' %}
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                            <i class="bi bi-calendar-check me-2"></i>Therapist Dashboard
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                            <i class="bi bi-person me-2"></i>Client Dashboard
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

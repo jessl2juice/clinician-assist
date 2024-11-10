@@ -34,8 +34,6 @@ def before_request():
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        if current_user.role == 'admin':
-            return redirect(url_for('admin.user_list'))
         return render_template('application.html')
     return redirect(url_for('auth.login'))
 
