@@ -34,7 +34,7 @@ def before_request():
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return render_template('application.html')
     return redirect(url_for('auth.login'))
 
 @app.route('/dashboard')

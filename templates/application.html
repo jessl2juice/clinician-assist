@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "components/navigation.html" %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center mb-5">
+            <h1 class="display-4 mb-3">Welcome to Clinician Assist</h1>
+            <p class="lead text-muted">Your secure healthcare management platform</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Quick Actions Card -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Actions</h5>
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                            <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
+                        </a>
+                        {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-people me-2"></i>Manage Users
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status Card -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">System Status</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="text-success me-2">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div>
+                            <strong>System Online</strong>
+                            <div class="text-muted small">All services are operational</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="text-primary me-2">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <strong>HIPAA Compliant</strong>
+                            <div class="text-muted small">Secure and compliant platform</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
