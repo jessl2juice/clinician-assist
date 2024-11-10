@@ -26,6 +26,13 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.brand-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1.5rem;
+    color: var(--bs-primary);
+}
+
 .brand-title {
     font-size: 2.5rem;
     font-weight: 700;
