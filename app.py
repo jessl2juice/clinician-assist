@@ -34,6 +34,8 @@ def before_request():
 @app.route('/')
 def index():
     if current_user.is_authenticated:
+        if current_user.role == 'admin':
+            return redirect(url_for('admin.user_list'))
         return render_template('application.html')
     return redirect(url_for('auth.login'))
 
@@ -41,7 +43,7 @@ def index():
 @login_required
 def dashboard():
     if current_user.role == 'admin':
-        return render_template('dashboard/admin.html')
+        return redirect(url_for('admin.user_list'))
     elif current_user.role == 'therapist':
         return render_template('dashboard/therapist.html')
     else:
