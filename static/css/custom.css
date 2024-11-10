@@ -119,6 +119,28 @@ h2, .h2 {
     margin-bottom: 1rem;
 }
 
+/* Navigation styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 1rem 0;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+/* Logo styling */
+.navbar-logo {
+    height: 40px;
+    width: auto;
+    transition: transform 0.2s ease-in-out;
+}
+
+.navbar-brand:hover .navbar-logo {
+    transform: scale(1.05);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .container {
@@ -140,17 +162,10 @@ h2, .h2 {
     .brand-title {
         font-size: 2rem;
     }
-}
-
-/* Navigation styling */
-.navbar {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 1rem 0;
-}
-
-.navbar-brand {
-    font-weight: 600;
-    font-size: 1.25rem;
+    
+    .navbar-logo {
+        height: 32px;
+    }
 }
 
 /* Footer styling */
