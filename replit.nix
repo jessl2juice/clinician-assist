@@ -1,7 +1,5 @@
 {pkgs}: {
   deps = [
-    pkgs.glibcLocales
-    pkgs.iana-etc
     pkgs.ffmpeg-full
     pkgs.rustc
     pkgs.pkg-config

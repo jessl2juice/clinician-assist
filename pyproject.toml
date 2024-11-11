@@ -18,8 +18,4 @@ dependencies = [
     "openai>=1.54.3",
     "speechrecognition>=3.11.0",
     "pydub>=0.25.1",
-    "eventlet>=0.37.0",
-    "python-socketio>=5.11.4",
-    "numpy",
-    "pandas",
 ]
