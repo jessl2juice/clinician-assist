@@ -14,8 +14,4 @@ dependencies = [
     "bleach>=6.2.0",
     "sendgrid>=6.11.0",
     "pillow>=11.0.0",
-    "wtforms",
-    "sqlalchemy",
-    "werkzeug",
-    "gunicorn>=23.0.0",
 ]

@@ -13,10 +13,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Production Server"
+args = "Flask Server"
 
 [[workflows.workflow]]
-name = "Production Server"
+name = "Flask Server"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -28,23 +28,11 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 app.py"
-waitForPort = 8080
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "python3 app.py"]
 
 [[ports]]
-localPort = 80
-externalPort = 3000
-
-[[ports]]
-localPort = 3000
-externalPort = 3001
-
-[[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
