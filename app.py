@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, session, request
 from flask_login import current_user, login_required
 from flask_socketio import SocketIO, emit
-from datetime import timedelta
+from datetime import datetime, timedelta
 from config import Config
 from extensions import db, login_manager, session as flask_session
 from models import User, ChatMessage
@@ -12,6 +12,9 @@ import json
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Initialize database with retry logic
+Config.init_db(app)
 
 # Initialize extensions
 db.init_app(app)
@@ -90,4 +93,4 @@ def handle_message(data):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, log_output=True)
