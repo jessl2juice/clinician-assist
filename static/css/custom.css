@@ -45,6 +45,39 @@
     padding: 1.5rem;
 }
 
+/* Client Dashboard specific styling */
+.welcome-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--bs-primary);
+    margin: 1.5rem 0;
+    text-transform: capitalize;
+    letter-spacing: -0.5px;
+}
+
+.client-dashboard-card {
+    background: linear-gradient(to right bottom, #ffffff, #f8f9fa);
+    border-radius: 1rem;
+    padding: 0.5rem;
+}
+
+.dashboard-subtitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 1.25rem;
+    border-bottom: 2px solid var(--bs-primary);
+    padding-bottom: 0.5rem;
+    display: inline-block;
+}
+
+.dashboard-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #505c6d;
+    margin-bottom: 0;
+}
+
 /* Login page specific styling */
 .login-card {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -172,6 +205,19 @@ h2, .h2 {
     .dashboard-logo {
         width: 120px;
         margin: 1.5rem auto;
+    }
+
+    .welcome-title {
+        font-size: 2rem;
+        margin: 1rem 0;
+    }
+
+    .dashboard-subtitle {
+        font-size: 1.25rem;
+    }
+
+    .dashboard-text {
+        font-size: 1rem;
     }
 }
 
