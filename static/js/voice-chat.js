@@ -72,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'voice-message.wav');
         
+        statusText.textContent = 'Processing message...';
+        
         fetch('/voice-message', {
             method: 'POST',
             body: formData
@@ -79,9 +81,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Add user's voice message
                 addVoiceMessage(data.audioUrl, data.transcript, false);
+                
+                // Add AI's response with both text and audio
                 if (data.ai_response) {
-                    addVoiceMessage(null, data.ai_response, true);
+                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
                 }
             } else {
                 statusText.textContent = data.error || 'Error processing voice message';
@@ -106,7 +111,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let messageContent = '';
         if (audioUrl) {
-            messageContent += `<audio controls src="${audioUrl}"></audio>`;
+            messageContent += `
+                <div class="audio-player-wrapper">
+                    <audio controls src="${audioUrl}"></audio>
+                    <div class="audio-controls">
+                        <button class="btn btn-sm btn-${isAI ? 'secondary' : 'primary'} play-pause-btn">
+                            <i class="bi bi-play-fill"></i>
+                        </button>
+                    </div>
+                </div>`;
         }
         messageContent += `<div class="voice-transcript">${content}</div>`;
         
@@ -116,6 +129,28 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="voice-message-timestamp">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
         `;
+        
+        // Add custom audio controls if there's an audio element
+        if (audioUrl) {
+            const audio = messageDiv.querySelector('audio');
+            const playPauseBtn = messageDiv.querySelector('.play-pause-btn');
+            
+            if (audio && playPauseBtn) {
+                playPauseBtn.addEventListener('click', () => {
+                    if (audio.paused) {
+                        audio.play();
+                        playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                    } else {
+                        audio.pause();
+                        playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                    }
+                });
+                
+                audio.addEventListener('ended', () => {
+                    playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                });
+            }
+        }
         
         voiceMessages.appendChild(messageDiv);
         voiceMessages.scrollTop = voiceMessages.scrollHeight;
