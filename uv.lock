@@ -401,6 +401,9 @@ dependencies = [
     { name = "pillow" },
     { name = "psycopg2-binary" },
     { name = "sendgrid" },
+    { name = "sqlalchemy" },
+    { name = "werkzeug" },
+    { name = "wtforms" },
 ]
 
 [package.metadata]
@@ -415,6 +418,9 @@ requires-dist = [
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "sendgrid", specifier = ">=6.11.0" },
+    { name = "sqlalchemy" },
+    { name = "werkzeug" },
+    { name = "wtforms" },
 ]
 
 [[package]]
