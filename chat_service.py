@@ -4,10 +4,15 @@ import os
 from models import ChatMessage, AuditLog
 from extensions import db
 import json
+import speech_recognition as sr
+from pydub import AudioSegment
+import io
+import tempfile
 
 class ChatService:
     def __init__(self):
         self.client = openai.Client(api_key=os.environ.get('OPENAI_API_KEY'))
+        self.recognizer = sr.Recognizer()
         
     def get_ai_response(self, user_message, user):
         try:
@@ -43,3 +48,31 @@ class ChatService:
         except Exception as e:
             current_app.logger.error(f"Error getting AI response: {str(e)}")
             return "I apologize, but I'm unable to process your request at the moment. Please try again later."
+            
+    def process_voice_message(self, audio_data, user):
+        try:
+            # Convert audio data to WAV format
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
+                audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
+                audio_segment.export(temp_audio.name, format='wav')
+                
+                # Perform speech recognition
+                with sr.AudioFile(temp_audio.name) as source:
+                    audio = self.recognizer.record(source)
+                    transcript = self.recognizer.recognize_google(audio)
+                    
+                # Get AI response for the transcribed text
+                ai_response = self.get_ai_response(transcript, user)
+                
+                return {
+                    'success': True,
+                    'transcript': transcript,
+                    'ai_response': ai_response
+                }
+                
+        except Exception as e:
+            current_app.logger.error(f"Error processing voice message: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Failed to process voice message'
+            }

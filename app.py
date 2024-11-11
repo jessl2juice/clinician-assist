@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, session, request
+from flask import Flask, render_template, redirect, url_for, session, request, jsonify
 from flask_login import current_user, login_required
 from flask_socketio import SocketIO, emit
 from datetime import datetime, timedelta
@@ -9,6 +9,7 @@ from auth import auth
 from admin import admin
 from chat_service import ChatService
 import json
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -59,6 +60,37 @@ def dashboard():
             'is_ai_response': msg.is_ai_response
         } for msg in chat_messages]
         return render_template('dashboard/client.html', messages=messages)
+
+@app.route('/voice-message', methods=['POST'])
+@login_required
+def handle_voice_message():
+    if current_user.role != 'client':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+    if 'audio' not in request.files:
+        return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+        
+    audio_file = request.files['audio']
+    
+    # Process the voice message
+    result = chat_service.process_voice_message(audio_file.read(), current_user)
+    
+    if result['success']:
+        # Save the audio file
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        filename = f'voice_message_{timestamp}.wav'
+        audio_path = os.path.join(app.static_folder, 'voice_messages', filename)
+        os.makedirs(os.path.dirname(audio_path), exist_ok=True)
+        audio_file.save(audio_path)
+        
+        return jsonify({
+            'success': True,
+            'audioUrl': url_for('static', filename=f'voice_messages/{filename}'),
+            'transcript': result['transcript'],
+            'ai_response': result['ai_response']
+        })
+    
+    return jsonify(result), 500
 
 @socketio.on('send_message')
 @login_required

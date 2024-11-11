@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.ffmpeg-full
     pkgs.rustc
     pkgs.pkg-config
     pkgs.libxcrypt
