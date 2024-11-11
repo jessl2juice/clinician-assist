@@ -3,13 +3,6 @@ from extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-from cryptography.fernet import Fernet
-import os
-
-# Generate encryption key if not exists
-if not hasattr(db, 'chat_key'):
-    db.chat_key = Fernet.generate_key()
-    db.cipher_suite = Fernet(db.chat_key)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,17 +42,11 @@ class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    encrypted_content = db.Column(db.Text, nullable=False)
     is_ai_response = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_content(self, content):
         self.content = content
-        # Encrypt the content before storing
-        encrypted_data = db.cipher_suite.encrypt(content.encode())
-        self.encrypted_content = encrypted_data.decode()
 
     def get_content(self):
-        # Decrypt the content when retrieving
-        decrypted_data = db.cipher_suite.decrypt(self.encrypted_content.encode())
-        return decrypted_data.decode()
+        return self.content

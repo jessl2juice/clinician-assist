@@ -20,12 +20,12 @@ class ChatService:
                 max_tokens=150
             )
             
-            # New API response format parsing
+            # Get AI response
             ai_message = response.choices[0].message.content
             
-            # Create and save the AI response with encryption
+            # Create and save the AI response directly
             chat_message = ChatMessage(user_id=user.id, is_ai_response=True)
-            chat_message.set_content(ai_message)
+            chat_message.content = ai_message
             
             db.session.add(chat_message)
             

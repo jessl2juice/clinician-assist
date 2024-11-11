@@ -54,7 +54,7 @@ def dashboard():
     else:
         chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp).all()
         messages = [{
-            'content': msg.get_content(),
+            'content': msg.content,
             'timestamp': msg.timestamp,
             'is_ai_response': msg.is_ai_response
         } for msg in chat_messages]
@@ -66,9 +66,9 @@ def handle_message(data):
     if current_user.role != 'client':
         return
     
-    # Save user message
+    # Save user message directly
     user_message = ChatMessage(user_id=current_user.id, is_ai_response=False)
-    user_message.set_content(data['message'])
+    user_message.content = data['message']
     db.session.add(user_message)
     db.session.commit()
     
