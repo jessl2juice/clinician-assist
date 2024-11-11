@@ -1,10 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const recordButton = document.getElementById('recordButton');
-    const recordingStatus = document.getElementById('recordingStatus');
-    const statusText = recordingStatus.querySelector('.status-text');
-    const recordingTime = recordingStatus.querySelector('.recording-time');
-    const voiceMessages = document.getElementById('voice-messages');
-    
+    const recordButtonText = document.querySelector('.record-text');
     let mediaRecorder;
     let audioChunks = [];
     let recordingTimer;
@@ -37,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         } catch (err) {
             console.error('Error accessing microphone:', err);
-            statusText.textContent = 'Error: Microphone access denied';
+            recordButtonText.textContent = 'Microphone access denied';
             return false;
         }
     }
@@ -46,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
-        recordingTime.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        recordButtonText.textContent = `Recording... ${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
     
     async function startRecording() {
@@ -58,8 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mediaRecorder.start(100);
         startTime = Date.now();
         recordButton.classList.add('recording');
-        statusText.textContent = 'Recording...';
-        recordingTime.textContent = '0:00';
+        recordButtonText.textContent = 'Recording...';
         recordingTimer = setInterval(updateRecordingTime, 1000);
     }
     
@@ -68,8 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mediaRecorder.stop();
             clearInterval(recordingTimer);
             recordButton.classList.remove('recording');
-            statusText.textContent = 'Processing...';
-            recordingTime.textContent = '';
+            recordButtonText.textContent = 'Processing...';
         }
     }
     
@@ -98,9 +92,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(err => {
                     console.error('Error playing audio:', err);
-                    statusText.textContent = 'Error playing audio';
+                    recordButtonText.textContent = 'Error playing audio';
                     setTimeout(() => {
-                        statusText.textContent = 'Hold to Talk';
+                        recordButtonText.textContent = 'Press and Hold to Speak';
                     }, 3000);
                 });
         } else {
@@ -178,8 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('audio', audioBlob);
         
-        statusText.textContent = 'Processing...';
-        
         try {
             const response = await fetch('/voice-message', {
                 method: 'POST',
@@ -197,19 +189,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     addVoiceMessage(data.ai_audio_url, data.ai_response, true);
                 }
                 
-                statusText.textContent = 'Hold to Talk';
+                recordButtonText.textContent = 'Press and Hold to Speak';
             } else {
                 console.error('Error processing voice message:', data.error);
-                statusText.textContent = data.error || 'Error processing message';
+                recordButtonText.textContent = data.error || 'Error processing message';
                 setTimeout(() => {
-                    statusText.textContent = 'Hold to Talk';
+                    recordButtonText.textContent = 'Press and Hold to Speak';
                 }, 3000);
             }
         } catch (error) {
             console.error('Error sending voice message:', error);
-            statusText.textContent = 'Error sending message';
+            recordButtonText.textContent = 'Error sending message';
             setTimeout(() => {
-                statusText.textContent = 'Hold to Talk';
+                recordButtonText.textContent = 'Press and Hold to Speak';
             }, 3000);
         }
     }
@@ -228,6 +220,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial setup
     setupRecording().then(() => {
-        statusText.textContent = 'Hold to Talk';
+        recordButtonText.textContent = 'Press and Hold to Speak';
     });
 });
