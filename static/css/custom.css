@@ -3,6 +3,24 @@
     padding: 2rem 1rem;
 }
 
+/* Logo styling */
+.logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ca-logo {
+    width: 120px;
+    height: auto;
+    margin-bottom: 1rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.ca-logo:hover {
+    transform: scale(1.05);
+}
+
 /* Card styling with shadows and hover effects */
 .card {
     border: none;
@@ -139,6 +157,10 @@ h2, .h2 {
 
     .brand-title {
         font-size: 2rem;
+    }
+
+    .ca-logo {
+        width: 100px;
     }
 }
 
