@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, session, request, jsonify
+from flask import Flask, render_template, redirect, url_for, session, request, jsonify, send_from_directory
 from flask_login import current_user, login_required
 from flask_socketio import SocketIO, emit
 from datetime import datetime, timedelta
@@ -8,7 +8,6 @@ from models import User, ChatMessage
 from auth import auth
 from admin import admin
 from chat_service import ChatService
-import json
 import os
 
 app = Flask(__name__)
@@ -67,25 +66,22 @@ def handle_voice_message():
     try:
         if current_user.role != 'client':
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-            
+        
         if 'audio' not in request.files:
             return jsonify({'success': False, 'error': 'No audio file provided'}), 400
-            
-        audio_file = request.files['audio']
         
-        # Save the audio file
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        filename = f'voice_message_{timestamp}.wav'
-        audio_path = os.path.join(app.static_folder, 'voice_messages', filename)
-        os.makedirs(os.path.dirname(audio_path), exist_ok=True)
-        audio_file.save(audio_path)
+        audio_file = request.files['audio']
+        if not audio_file.filename:
+            return jsonify({'success': False, 'error': 'Empty audio file'}), 400
         
         # Process the voice message
-        result = chat_service.process_voice_message(audio_file.read(), current_user)
+        result = chat_service.process_voice_message(audio_file, current_user)
         
         if result.get('success', False):
             return jsonify({
                 'success': True,
+                'transcript': result.get('transcript'),
+                'ai_response': result.get('ai_response'),
                 'ai_audio_url': result.get('ai_audio_url')
             })
         
@@ -100,6 +96,10 @@ def handle_voice_message():
             'success': False,
             'error': 'An unexpected error occurred'
         }), 500
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(app.static_folder, filename)
 
 @socketio.on('send_message')
 def handle_message(data):

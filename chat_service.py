@@ -39,97 +39,74 @@ class ChatService:
 
     def generate_audio_response(self, text):
         try:
-            # Generate speech using OpenAI TTS API
+            current_app.logger.info("Generating audio response")
             response = self.client.audio.speech.create(
                 model="tts-1",
                 voice="alloy",
                 input=text
             )
             
-            # Create unique filename
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             filename = f'ai_response_{timestamp}.mp3'
             
-            # Ensure static folder exists
             static_folder = current_app.static_folder or 'static'
             voice_messages_dir = os.path.join(static_folder, 'voice_messages')
             os.makedirs(voice_messages_dir, exist_ok=True)
             
-            # Save the audio file
             audio_path = os.path.join(voice_messages_dir, filename)
             response.stream_to_file(audio_path)
             
             current_app.logger.info(f"Audio response generated successfully: {filename}")
-            return f'voice_messages/{filename}'
+            return f'/static/voice_messages/{filename}'
                 
         except Exception as e:
             current_app.logger.error(f"Error generating audio response: {str(e)}")
             return None
             
-    def process_voice_message(self, audio_data, user):
+    def process_voice_message(self, audio_file, user):
         try:
-            current_app.logger.info("Starting voice message processing")
+            current_app.logger.info("Processing voice message")
             
-            # Create a temporary file for the audio data
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            temp_filename = f'temp_voice_{timestamp}.wav'
+            # Process speech to text directly
+            transcript = self.client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file
+            )
             
-            # Ensure static folder exists
-            static_folder = current_app.static_folder or 'static'
-            voice_messages_dir = os.path.join(static_folder, 'voice_messages')
-            os.makedirs(voice_messages_dir, exist_ok=True)
+            current_app.logger.info(f"Speech to text completed: {transcript.text}")
             
-            temp_path = os.path.join(voice_messages_dir, temp_filename)
+            # Save user message
+            user_message = ChatMessage()
+            user_message.user_id = user.id
+            user_message.is_ai_response = False
+            user_message.content = transcript.text
+            db.session.add(user_message)
+            db.session.commit()
             
-            # Save the audio data temporarily
-            with open(temp_path, 'wb') as f:
-                f.write(audio_data)
+            # Get AI response
+            current_app.logger.info("Getting AI response")
+            ai_response = self.get_ai_response(transcript.text, user)
             
-            try:
-                # Process speech to text internally
-                with open(temp_path, 'rb') as audio_file:
-                    transcript = self.client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file
-                    )
-                
-                # Save user message
-                user_message = ChatMessage()
-                user_message.user_id = user.id
-                user_message.is_ai_response = False
-                user_message.content = transcript.text
-                db.session.add(user_message)
-                db.session.commit()
-                
-                # Get AI response for the transcribed text
-                current_app.logger.info("Getting AI response")
-                ai_response = self.get_ai_response(transcript.text, user)
-                
-                # Generate audio response
-                current_app.logger.info("Generating audio response")
-                audio_file_path = self.generate_audio_response(ai_response)
-                
-                if not audio_file_path:
-                    return {
-                        'success': False,
-                        'error': 'Failed to generate audio response'
-                    }
-                
+            # Generate audio response
+            current_app.logger.info("Generating audio response")
+            audio_url = self.generate_audio_response(ai_response)
+            
+            if not audio_url:
                 return {
-                    'success': True,
-                    'ai_audio_url': audio_file_path
+                    'success': False,
+                    'error': 'Failed to generate audio response'
                 }
-                
-            finally:
-                # Cleanup temporary file
-                try:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-                except Exception as e:
-                    current_app.logger.error(f"Error cleaning up temporary file: {str(e)}")
+            
+            return {
+                'success': True,
+                'transcript': transcript.text,
+                'ai_response': ai_response,
+                'ai_audio_url': audio_url
+            }
                 
         except Exception as e:
-            current_app.logger.error(f"Error processing voice message: {str(e)}")
+            error_msg = f"Error processing voice message: {str(e)}\n{traceback.format_exc()}"
+            current_app.logger.error(error_msg)
             return {
                 'success': False,
                 'error': 'Failed to process voice message'
