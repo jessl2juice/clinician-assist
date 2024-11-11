@@ -50,9 +50,17 @@
     font-size: 2.5rem;
     font-weight: 700;
     color: var(--bs-primary);
-    margin: 1.5rem 0;
+    margin: 1rem 0 0.5rem;
     text-transform: capitalize;
     letter-spacing: -0.5px;
+}
+
+.dashboard-tagline {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 2rem;
+    letter-spacing: 0.5px;
 }
 
 .client-dashboard-card {
@@ -209,7 +217,12 @@ h2, .h2 {
 
     .welcome-title {
         font-size: 2rem;
-        margin: 1rem 0;
+        margin: 0.75rem 0 0.25rem;
+    }
+
+    .dashboard-tagline {
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
     }
 
     .dashboard-subtitle {
