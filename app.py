@@ -13,9 +13,14 @@ from admin import admin
 from chat_service import ChatService
 import os
 import traceback
+import logging
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
+app.logger.setLevel(logging.DEBUG)
 
 # Initialize database with retry logic
 Config.init_db(app)
@@ -38,8 +43,11 @@ app.register_blueprint(auth, url_prefix='/auth')
 app.register_blueprint(admin, url_prefix='/admin')
 
 def create_directories():
+    """Create necessary directories with proper permissions"""
     voice_messages_dir = os.path.join(app.static_folder or 'static', 'voice_messages')
     os.makedirs(voice_messages_dir, exist_ok=True)
+    os.chmod(voice_messages_dir, 0o777)  # Ensure full permissions for voice messages
+    app.logger.info(f"Voice messages directory created/verified at: {voice_messages_dir}")
 
 @app.before_request
 def before_request():
@@ -86,12 +94,21 @@ def handle_voice_message():
             return jsonify({'success': False, 'error': 'No audio file provided'}), 400
         
         audio_file = request.files['audio']
-        if not audio_file.filename:
-            app.logger.warning("Empty audio filename received")
-            return jsonify({'success': False, 'error': 'Empty audio file'}), 400
+        app.logger.info(f"Received audio file: {audio_file.filename}, Content-Type: {audio_file.content_type}, Size: {request.content_length} bytes")
+        
+        if not audio_file.filename or not audio_file.content_type.startswith('audio/'):
+            app.logger.warning(f"Invalid audio file: {audio_file.filename}, {audio_file.content_type}")
+            return jsonify({'success': False, 'error': 'Invalid audio file format'}), 400
+        
+        # Verify voice messages directory exists with proper permissions
+        voice_messages_dir = os.path.join(app.static_folder or 'static', 'voice_messages')
+        if not os.path.exists(voice_messages_dir):
+            create_directories()
+            app.logger.info("Voice messages directory created")
         
         # Process the voice message
         result = chat_service.process_voice_message(audio_file, current_user)
+        app.logger.debug(f"Voice message processing result: {result}")
         
         if result.get('success', False):
             return jsonify({
@@ -159,4 +176,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         create_directories()
-    socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, log_output=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=True, log_output=True)

@@ -10,19 +10,50 @@ document.addEventListener('DOMContentLoaded', function() {
     let recordingTimer;
     let startTime;
     let currentlyPlaying = null;
+    let scrollTimeout;
     
     function scrollToBottom(container) {
         if (!container) return;
-        const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
         
-        if (shouldScroll) {
+        // Clear any existing scroll timeout
+        if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+        }
+        
+        // Set a new timeout to scroll after content is rendered
+        scrollTimeout = setTimeout(() => {
             container.scrollTop = container.scrollHeight;
             container.style.scrollBehavior = 'smooth';
-        }
+        }, 100);
+    }
+    
+    // Add scroll observer
+    function observeScroll(container) {
+        if (!container) return;
+        
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        scrollToBottom(container);
+                    }
+                });
+            },
+            { root: container, threshold: 0.5 }
+        );
+        
+        // Observe all messages
+        container.querySelectorAll('.voice-message').forEach(message => {
+            observer.observe(message);
+        });
+        
+        return observer;
     }
     
     async function setupRecording() {
+        showStatus('Initializing microphone...', 0);
         try {
+            console.log('Setting up recording...');
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
                     channelCount: 1,
@@ -37,19 +68,25 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             mediaRecorder.ondataavailable = (event) => {
+                console.log('Data available:', event.data.size, 'bytes');
                 if (event.data.size > 0) {
                     audioChunks.push(event.data);
                 }
             };
             
             mediaRecorder.onstop = async () => {
+                console.log('Recording stopped. Processing audio...');
                 if (audioChunks.length === 0) {
+                    console.error('No audio chunks recorded');
                     showStatus('No audio recorded', 2000);
                     return;
                 }
                 
                 const audioBlob = new Blob(audioChunks, { type: mimeType });
+                console.log('Audio blob created, size:', audioBlob.size, 'bytes');
+                
                 if (audioBlob.size === 0) {
+                    console.error('Empty audio blob created');
                     showStatus('No audio recorded', 2000);
                     return;
                 }
@@ -58,15 +95,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 audioChunks = [];
             };
             
+            console.log('Recording setup completed successfully');
             return true;
         } catch (err) {
             console.error('Error accessing microphone:', err);
+            console.error('Error details:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             showStatus('Error: ' + (err.message || 'Microphone access denied'), 3000);
             return false;
         }
     }
     
     function showStatus(message, duration = 2000) {
+        console.log('Status update:', message);
         if (!statusText) return;
         statusText.textContent = message;
         if (duration > 0) {
@@ -87,13 +131,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function startRecording() {
+        console.log('Starting recording...');
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            showStatus('Setting up recorder...', 0);
             const setup = await setupRecording();
-            if (!setup) return;
+            if (!setup) {
+                console.error('Failed to setup recording');
+                return;
+            }
         }
         
         try {
             mediaRecorder.start(100);
+            console.log('Recording started');
             startTime = Date.now();
             recordButton.classList.add('recording');
             showStatus('Recording...', 0);
@@ -101,11 +151,17 @@ document.addEventListener('DOMContentLoaded', function() {
             recordingTimer = setInterval(updateRecordingTime, 1000);
         } catch (err) {
             console.error('Error starting recording:', err);
+            console.error('Error details:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             showStatus('Error starting recording', 2000);
         }
     }
     
     function stopRecording() {
+        console.log('Stopping recording...');
         try {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
@@ -113,9 +169,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 recordButton.classList.remove('recording');
                 showStatus('Processing...', 0);
                 recordingTime.textContent = '';
+                console.log('Recording stopped successfully');
             }
         } catch (err) {
             console.error('Error stopping recording:', err);
+            console.error('Error details:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             showStatus('Error stopping recording', 2000);
         }
     }
@@ -144,9 +206,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(() => {
                     playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
                     currentlyPlaying = audio;
+                    console.log('Audio playback started');
                 })
                 .catch(err => {
                     console.error('Error playing audio:', err);
+                    console.error('Error details:', {
+                        name: err.name,
+                        message: err.message,
+                        stack: err.stack
+                    });
                     playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
                     currentlyPlaying = null;
                     showStatus('Error playing audio', 2000);
@@ -155,10 +223,12 @@ document.addEventListener('DOMContentLoaded', function() {
             audio.pause();
             playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
             currentlyPlaying = null;
+            console.log('Audio playback paused');
         }
     }
     
     function addVoiceMessage(audioUrl, transcript, isAI) {
+        console.log('Adding voice message:', { audioUrl, transcript, isAI });
         if (!voiceMessages) return;
         
         const messageDiv = document.createElement('div');
@@ -205,6 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 audio.addEventListener('ended', () => {
                     playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
                     currentlyPlaying = null;
+                    console.log('Audio playback ended');
                 });
                 
                 if (isAI) {
@@ -219,10 +290,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         voiceMessages.appendChild(messageDiv);
         scrollToBottom(voiceMessages);
+        console.log('Voice message added successfully');
     }
     
     async function sendVoiceMessage(audioBlob) {
+        console.log('Sending voice message, blob size:', audioBlob.size, 'bytes');
         if (!audioBlob || audioBlob.size === 0) {
+            console.error('Invalid audio blob:', { size: audioBlob?.size });
             showStatus('No audio to send', 2000);
             return;
         }
@@ -231,6 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('audio', audioBlob, 'audio.webm');
         
         showStatus('Processing...', 0);
+        console.log('Sending voice message to server...');
         
         try {
             const response = await fetch('/voice-message', {
@@ -241,19 +316,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
+            console.log('Server response status:', response.status);
+            
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server responded with ${response.status}`);
+                let errorMessage = 'Failed to process message';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    console.error('Error parsing error response:', e);
+                }
+                throw new Error(errorMessage);
             }
             
             const data = await response.json();
+            console.log('Server response data:', {
+                success: data.success,
+                hasTranscript: !!data.transcript,
+                hasAudioUrl: !!data.ai_audio_url
+            });
             
             if (data.success) {
                 if (data.transcript) {
+                    console.log('Adding user transcript message');
                     addVoiceMessage(null, data.transcript, false);
                 }
                 
                 if (data.ai_audio_url && data.ai_response) {
+                    console.log('Adding AI response message');
                     addVoiceMessage(data.ai_audio_url, data.ai_response, true);
                 }
                 
@@ -264,8 +354,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error sending voice message:', error);
             showStatus('Error: ' + (error.message || 'Failed to send message'), 3000);
-            
-            // Add error message to chat
             addVoiceMessage(null, 'Error: Failed to send voice message. Please try again.', true);
         }
     }
@@ -293,12 +381,24 @@ document.addEventListener('DOMContentLoaded', function() {
         // Observe voice messages for changes
         const observer = new MutationObserver(() => scrollToBottom(voiceMessages));
         observer.observe(voiceMessages, { childList: true, subtree: true });
+        
+        // Initialize scroll observer
+        const scrollObserver = observeScroll(voiceMessages);
+        
+        // Cleanup function for scroll observer
+        window.addEventListener('unload', () => {
+            if (scrollObserver) {
+                scrollObserver.disconnect();
+            }
+        });
     }
     
     // Initial setup
     if (recordButton) {
+        console.log('Initializing voice chat interface');
         setupRecording().then(() => {
             showStatus('Hold to Talk', 0);
+            console.log('Voice chat interface ready');
         });
     }
 });

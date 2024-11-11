@@ -282,6 +282,10 @@ h2, .h2 {
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+    position: relative;
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.02);
 }
 
 .chat-messages::-webkit-scrollbar,
