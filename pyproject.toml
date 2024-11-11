@@ -13,4 +13,7 @@ dependencies = [
     "flask-session>=0.8.0",
     "bleach>=6.2.0",
     "sendgrid>=6.11.0",
+    "cryptography>=43.0.3",
+    "flask-socketio>=5.4.1",
+    "openai>=1.54.3",
 ]
