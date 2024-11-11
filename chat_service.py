@@ -32,14 +32,6 @@ class ChatService:
             chat_message.content = ai_message
             
             db.session.add(chat_message)
-            
-            # Log the interaction (maintaining audit trail)
-            audit_log = AuditLog()
-            audit_log.user_id = user.id
-            audit_log.action = 'ai_chat_response'
-            audit_log.details = json.dumps({'message_id': chat_message.id})
-            
-            db.session.add(audit_log)
             db.session.commit()
             
             return ai_message
@@ -104,14 +96,12 @@ class ChatService:
                 f.write(audio_data)
             
             try:
-                # Use OpenAI's Audio API for speech-to-text
+                # Use OpenAI's Audio API for speech-to-text (internal use only)
                 with open(temp_path, 'rb') as audio_file:
                     transcript = self.client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file
                     )
-                    
-                current_app.logger.info(f"Speech recognition successful: {transcript.text}")
                 
                 # Save user message
                 user_message = ChatMessage()
@@ -125,25 +115,18 @@ class ChatService:
                 current_app.logger.info("Getting AI response")
                 ai_response = self.get_ai_response(transcript.text, user)
                 
-                # Generate audio response with retries
+                # Generate audio response
                 current_app.logger.info("Generating audio response")
                 audio_file_path = self.generate_audio_response(ai_response)
                 
-                # If audio generation fails, log the error but still return the text response
                 if not audio_file_path:
-                    current_app.logger.error("Failed to generate audio response")
                     return {
-                        'success': True,
-                        'transcript': transcript.text,
-                        'ai_response': ai_response,
-                        'ai_audio_url': None,
-                        'error_message': 'Audio response generation failed'
+                        'success': False,
+                        'error': 'Failed to generate audio response'
                     }
                 
                 return {
                     'success': True,
-                    'transcript': transcript.text,
-                    'ai_response': ai_response,
                     'ai_audio_url': audio_file_path
                 }
                 
@@ -159,5 +142,5 @@ class ChatService:
             current_app.logger.error(f"Error processing voice message: {str(e)}\n{traceback.format_exc()}")
             return {
                 'success': False,
-                'error': str(e) if str(e) != '' else 'Failed to process voice message'
+                'error': 'Failed to process voice message'
             }

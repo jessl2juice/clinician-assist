@@ -19,21 +19,41 @@
                     <!-- Tabs -->
                     <ul class="nav nav-tabs mb-3" id="chatTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-chat" type="button" role="tab" aria-controls="text-chat" aria-selected="true">
-                                <i class="bi bi-chat-text"></i> Text Chat
+                            <button class="nav-link active" id="voice-tab" data-bs-toggle="tab" data-bs-target="#voice-chat" type="button" role="tab" aria-controls="voice-chat" aria-selected="true">
+                                <i class="bi bi-mic"></i> Voice Chat
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="voice-tab" data-bs-toggle="tab" data-bs-target="#voice-chat" type="button" role="tab" aria-controls="voice-chat" aria-selected="false">
-                                <i class="bi bi-mic"></i> Voice Chat
+                            <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-chat" type="button" role="tab" aria-controls="text-chat" aria-selected="false">
+                                <i class="bi bi-chat-text"></i> Text Chat
                             </button>
                         </li>
                     </ul>
 
                     <!-- Tab Content -->
                     <div class="tab-content" id="chatTabsContent">
+                        <!-- Voice Chat Tab -->
+                        <div class="tab-pane fade show active" id="voice-chat" role="tabpanel" aria-labelledby="voice-tab">
+                            <div class="voice-chat-container">
+                                <div class="voice-controls text-center mb-4">
+                                    <button id="recordButton" class="btn btn-lg btn-record" title="Hold to talk">
+                                        <i class="bi bi-mic"></i>
+                                        <span class="record-text">Hold to Talk</span>
+                                    </button>
+                                    <div id="recordingStatus" class="recording-status mt-2">
+                                        <span class="status-text">Hold to Talk</span>
+                                        <span class="recording-time"></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="voice-messages" id="voice-messages">
+                                    <!-- Voice messages will be added here dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Text Chat Tab -->
-                        <div class="tab-pane fade show active" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
+                        <div class="tab-pane fade" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
                             <div class="chat-messages" id="chat-messages">
                                 {% for message in messages %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %}">
@@ -55,26 +75,6 @@
                                     </button>
                                 </div>
                             </form>
-                        </div>
-
-                        <!-- Voice Chat Tab -->
-                        <div class="tab-pane fade" id="voice-chat" role="tabpanel" aria-labelledby="voice-tab">
-                            <div class="voice-chat-container">
-                                <div class="voice-controls text-center mb-4">
-                                    <button id="recordButton" class="btn btn-lg btn-record" title="Hold to talk">
-                                        <i class="bi bi-mic"></i>
-                                        <span class="record-text">Hold to Talk</span>
-                                    </button>
-                                    <div id="recordingStatus" class="recording-status mt-2">
-                                        <span class="status-text">Hold the button to start talking</span>
-                                        <span class="recording-time"></span>
-                                    </div>
-                                </div>
-                                
-                                <div class="voice-messages" id="voice-messages">
-                                    <!-- Voice messages will be added here dynamically -->
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

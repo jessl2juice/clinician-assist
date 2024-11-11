@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mediaRecorder.start();
         startTime = Date.now();
         recordButton.classList.add('recording');
-        statusText.textContent = 'Recording in progress...';
+        statusText.textContent = 'Recording...';
         recordingTimer = setInterval(updateRecordingTime, 1000);
     }
     
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mediaRecorder.stop();
             clearInterval(recordingTimer);
             recordButton.classList.remove('recording');
-            statusText.textContent = 'Processing your message...';
+            statusText.textContent = 'Processing...';
             recordingTime.textContent = '';
         }
     }
@@ -99,47 +99,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Add voice message to chat
-    function addVoiceMessage(audioUrl, content, isAI) {
+    function addVoiceMessage(audioUrl, isAI) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'}`;
         
-        let messageContent = '';
-        
-        // Add transcript first for AI messages
-        if (isAI) {
-            messageContent += `<div class="voice-transcript">${content}</div>`;
-        }
-        
-        // Add audio player if URL is provided
         if (audioUrl) {
-            messageContent += `
+            messageDiv.innerHTML = `
                 <div class="audio-player-wrapper">
                     <audio src="${audioUrl}"></audio>
                     <div class="audio-controls">
                         <button class="btn btn-sm btn-${isAI ? 'secondary' : 'primary'} play-pause-btn">
                             <i class="bi bi-play-fill"></i>
                         </button>
-                        <div class="audio-progress">
-                            <div class="progress-bar"></div>
-                        </div>
                     </div>
-                </div>`;
-        }
-        
-        // Add transcript last for user messages
-        if (!isAI) {
-            messageContent += `<div class="voice-transcript">${content}</div>`;
-        }
-        
-        messageDiv.innerHTML = `
-            <div class="voice-message-content">
-                ${messageContent}
-            </div>
-            <div class="voice-message-timestamp">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-        `;
-        
-        // Setup audio controls if there's an audio element
-        if (audioUrl) {
+                </div>
+                <div class="voice-message-timestamp">
+                    ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+            `;
+            
             const audio = messageDiv.querySelector('audio');
             const playPauseBtn = messageDiv.querySelector('.play-pause-btn');
             
@@ -171,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'voice-message.wav');
         
-        statusText.textContent = 'Processing message...';
+        statusText.textContent = 'Processing...';
         
         fetch('/voice-message', {
             method: 'POST',
@@ -180,17 +158,17 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Add user's voice message
-                addVoiceMessage(null, data.transcript, false);
+                // Add user's recording indicator
+                addVoiceMessage(null, false);
                 
-                // Add AI's response with both text and audio
-                if (data.ai_response) {
-                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
+                // Add AI's audio response
+                if (data.ai_audio_url) {
+                    addVoiceMessage(data.ai_audio_url, true);
                 }
                 
                 statusText.textContent = 'Hold to Talk';
             } else {
-                statusText.textContent = data.error || 'Error processing voice message';
+                statusText.textContent = data.error || 'Error processing message';
                 setTimeout(() => {
                     statusText.textContent = 'Hold to Talk';
                 }, 3000);
@@ -198,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error sending voice message:', error);
-            statusText.textContent = 'Error sending voice message';
+            statusText.textContent = 'Error sending message';
             setTimeout(() => {
                 statusText.textContent = 'Hold to Talk';
             }, 3000);
