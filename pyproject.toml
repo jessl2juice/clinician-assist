@@ -17,4 +17,5 @@ dependencies = [
     "wtforms",
     "sqlalchemy",
     "werkzeug",
+    "gunicorn>=23.0.0",
 ]
