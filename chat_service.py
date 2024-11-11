@@ -49,32 +49,40 @@ class ChatService:
             return "I apologize, but I'm unable to process your request at the moment. Please try again later."
 
     def generate_audio_response(self, text):
-        try:
-            current_app.logger.info("Generating audio response")
-            
-            # Generate speech using OpenAI TTS API
-            response = self.client.audio.speech.create(
-                model="tts-1",
-                voice="alloy",
-                input=text
-            )
-            
-            # Save the audio response
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            filename = f'ai_response_{timestamp}.mp3'
-            audio_path = os.path.join(current_app.static_folder, 'voice_messages', filename)
-            
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(audio_path), exist_ok=True)
-            
-            # Save the audio file
-            response.stream_to_file(audio_path)
-            
-            return f'voice_messages/{filename}'
-            
-        except Exception as e:
-            current_app.logger.error(f"Error generating audio response: {str(e)}\n{traceback.format_exc()}")
-            return None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                current_app.logger.info(f"Generating audio response (attempt {attempt + 1}/{max_retries})")
+                
+                # Generate speech using OpenAI TTS API
+                response = self.client.audio.speech.create(
+                    model="tts-1",
+                    voice="alloy",
+                    input=text
+                )
+                
+                # Create unique filename
+                timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                filename = f'ai_response_{timestamp}.mp3'
+                
+                # Ensure static folder exists
+                static_folder = current_app.static_folder or 'static'
+                voice_messages_dir = os.path.join(static_folder, 'voice_messages')
+                os.makedirs(voice_messages_dir, exist_ok=True)
+                
+                # Save the audio file
+                audio_path = os.path.join(voice_messages_dir, filename)
+                response.stream_to_file(audio_path)
+                
+                current_app.logger.info(f"Audio response generated successfully: {filename}")
+                return f'voice_messages/{filename}'
+                
+            except Exception as e:
+                current_app.logger.error(f"Error generating audio response (attempt {attempt + 1}): {str(e)}")
+                if attempt == max_retries - 1:
+                    current_app.logger.error("Max retries reached for audio generation")
+                    return None
+                continue
             
     def process_voice_message(self, audio_data, user):
         try:
@@ -83,10 +91,13 @@ class ChatService:
             # Create a temporary file for the audio data
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             temp_filename = f'temp_voice_{timestamp}.wav'
-            temp_path = os.path.join(current_app.static_folder, 'voice_messages', temp_filename)
             
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            # Ensure static folder exists
+            static_folder = current_app.static_folder or 'static'
+            voice_messages_dir = os.path.join(static_folder, 'voice_messages')
+            os.makedirs(voice_messages_dir, exist_ok=True)
+            
+            temp_path = os.path.join(voice_messages_dir, temp_filename)
             
             # Save the audio data temporarily
             with open(temp_path, 'wb') as f:
@@ -114,9 +125,20 @@ class ChatService:
                 current_app.logger.info("Getting AI response")
                 ai_response = self.get_ai_response(transcript.text, user)
                 
-                # Generate audio response
+                # Generate audio response with retries
                 current_app.logger.info("Generating audio response")
                 audio_file_path = self.generate_audio_response(ai_response)
+                
+                # If audio generation fails, log the error but still return the text response
+                if not audio_file_path:
+                    current_app.logger.error("Failed to generate audio response")
+                    return {
+                        'success': True,
+                        'transcript': transcript.text,
+                        'ai_response': ai_response,
+                        'ai_audio_url': None,
+                        'error_message': 'Audio response generation failed'
+                    }
                 
                 return {
                     'success': True,
@@ -128,7 +150,8 @@ class ChatService:
             finally:
                 # Cleanup temporary file
                 try:
-                    os.unlink(temp_path)
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
                 except Exception as e:
                     current_app.logger.error(f"Error cleaning up temporary file: {str(e)}")
                 
