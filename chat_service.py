@@ -7,11 +7,11 @@ import json
 
 class ChatService:
     def __init__(self):
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        self.client = openai.Client(api_key=os.environ.get('OPENAI_API_KEY'))
         
     def get_ai_response(self, user_message, user):
         try:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a helpful therapist assistant. Provide supportive and professional responses while maintaining HIPAA compliance. Do not store or repeat sensitive personal information."},
@@ -20,15 +20,16 @@ class ChatService:
                 max_tokens=150
             )
             
+            # New API response format parsing
             ai_message = response.choices[0].message.content
             
-            # Create and save the AI response
+            # Create and save the AI response with encryption
             chat_message = ChatMessage(user_id=user.id, is_ai_response=True)
             chat_message.set_content(ai_message)
             
             db.session.add(chat_message)
             
-            # Log the interaction
+            # Log the interaction (maintaining audit trail)
             audit_log = AuditLog(
                 user_id=user.id,
                 action='ai_chat_response',
