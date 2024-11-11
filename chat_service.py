@@ -5,6 +5,7 @@ from models import ChatMessage
 from extensions import db
 import traceback
 from datetime import datetime
+import io
 
 class ChatService:
     def __init__(self):
@@ -64,14 +65,33 @@ class ChatService:
             return None
             
     def process_voice_message(self, audio_file, user):
+        temp_file = None
         try:
             current_app.logger.info("Processing voice message")
             
-            # Process speech to text directly
-            transcript = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
+            # Read audio file bytes
+            audio_bytes = audio_file.read()
+            current_app.logger.info(f"Audio file read, size: {len(audio_bytes)} bytes")
+            
+            # Create a temporary file for OpenAI API
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            temp_filename = f'temp_voice_{timestamp}.wav'
+            static_folder = current_app.static_folder or 'static'
+            voice_messages_dir = os.path.join(static_folder, 'voice_messages')
+            os.makedirs(voice_messages_dir, exist_ok=True)
+            temp_file = os.path.join(voice_messages_dir, temp_filename)
+            
+            # Save audio bytes to temporary file
+            with open(temp_file, 'wb') as f:
+                f.write(audio_bytes)
+            current_app.logger.info(f"Temporary file created: {temp_file}")
+            
+            # Process speech to text using the temporary file
+            with open(temp_file, 'rb') as f:
+                transcript = self.client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=("audio.wav", f, "audio/wav")
+                )
             
             current_app.logger.info(f"Speech to text completed: {transcript.text}")
             
@@ -111,3 +131,11 @@ class ChatService:
                 'success': False,
                 'error': 'Failed to process voice message'
             }
+        finally:
+            # Cleanup temporary file
+            try:
+                if temp_file and os.path.exists(temp_file):
+                    os.unlink(temp_file)
+                    current_app.logger.info(f"Temporary file deleted: {temp_file}")
+            except Exception as e:
+                current_app.logger.error(f"Error cleaning up temporary file: {str(e)}")
