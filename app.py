@@ -24,7 +24,7 @@ Config.init_db(app)
 db.init_app(app)
 login_manager.init_app(app)
 flask_session.init_app(app)
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*', ping_timeout=60)
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 chat_service = ChatService()
 
 # Configure login
@@ -40,7 +40,6 @@ app.register_blueprint(admin, url_prefix='/admin')
 def create_directories():
     voice_messages_dir = os.path.join(app.static_folder or 'static', 'voice_messages')
     os.makedirs(voice_messages_dir, exist_ok=True)
-    return voice_messages_dir
 
 @app.before_request
 def before_request():
@@ -87,34 +86,26 @@ def handle_voice_message():
             return jsonify({'success': False, 'error': 'No audio file provided'}), 400
         
         audio_file = request.files['audio']
-        if not audio_file or not audio_file.filename:
+        if not audio_file.filename:
             app.logger.warning("Empty audio filename received")
             return jsonify({'success': False, 'error': 'Empty audio file'}), 400
         
-        # Verify content type
-        if not audio_file.content_type or 'audio' not in audio_file.content_type:
-            app.logger.warning(f"Invalid content type: {audio_file.content_type}")
-            return jsonify({'success': False, 'error': 'Invalid audio format'}), 400
-        
         # Process the voice message
-        voice_messages_dir = create_directories()
         result = chat_service.process_voice_message(audio_file, current_user)
         
         if result.get('success', False):
-            response_data = {
+            return jsonify({
                 'success': True,
                 'transcript': result.get('transcript'),
                 'ai_response': result.get('ai_response'),
                 'ai_audio_url': result.get('ai_audio_url')
-            }
-            app.logger.info(f"Voice message processed successfully: {response_data}")
-            return jsonify(response_data)
+            })
         
         error_message = result.get('error', 'Failed to process voice message')
         app.logger.error(f"Voice message processing error: {error_message}")
         return jsonify({
             'success': False,
-            'error': str(error_message)
+            'error': error_message
         }), 500
         
     except Exception as e:
@@ -128,17 +119,6 @@ def handle_voice_message():
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(app.static_folder or 'static', filename)
-
-@socketio.on('connect')
-def handle_connect():
-    if not current_user.is_authenticated:
-        return False
-    app.logger.info(f"Client connected: {current_user.email}")
-    return True
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    app.logger.info("Client disconnected")
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -162,14 +142,8 @@ def handle_message(data):
         # Get and emit AI response
         emit('typing_indicator', {'typing': True})
         ai_response = chat_service.get_ai_response(data['message'], current_user)
-        
-        # Save AI message
-        ai_message = ChatMessage(user_id=current_user.id, is_ai_response=True)
-        ai_message.set_content(ai_response)
-        db.session.add(ai_message)
-        db.session.commit()
-        
         emit('typing_indicator', {'typing': False})
+        
         emit('new_message', {
             'content': ai_response,
             'timestamp': datetime.utcnow().isoformat(),
@@ -185,4 +159,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         create_directories()
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=True)
+    socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, log_output=True)
