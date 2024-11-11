@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let mediaRecorder;
     let audioChunks = [];
-    let isRecording = false;
     let recordingTimer;
     let startTime;
     
@@ -51,23 +50,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         mediaRecorder.start();
-        isRecording = true;
         startTime = Date.now();
         recordButton.classList.add('recording');
-        recordButton.querySelector('.record-text').textContent = 'Stop Recording';
-        statusText.textContent = 'Recording...';
+        statusText.textContent = 'Recording in progress...';
         recordingTimer = setInterval(updateRecordingTime, 1000);
     }
     
     // Stop recording
     function stopRecording() {
-        mediaRecorder.stop();
-        isRecording = false;
-        clearInterval(recordingTimer);
-        recordButton.classList.remove('recording');
-        recordButton.querySelector('.record-text').textContent = 'Start Recording';
-        statusText.textContent = 'Click to start recording';
-        recordingTime.textContent = '';
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            clearInterval(recordingTimer);
+            recordButton.classList.remove('recording');
+            statusText.textContent = 'Hold to Talk';
+            recordingTime.textContent = '';
+        }
     }
     
     // Send voice message to server
@@ -83,23 +80,39 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 addVoiceMessage(data.audioUrl, data.transcript, false);
+                if (data.ai_response) {
+                    addVoiceMessage(null, data.ai_response, true);
+                }
+            } else {
+                statusText.textContent = data.error || 'Error processing voice message';
+                setTimeout(() => {
+                    statusText.textContent = 'Hold to Talk';
+                }, 3000);
             }
         })
         .catch(error => {
             console.error('Error sending voice message:', error);
             statusText.textContent = 'Error sending voice message';
+            setTimeout(() => {
+                statusText.textContent = 'Hold to Talk';
+            }, 3000);
         });
     }
     
     // Add voice message to chat
-    function addVoiceMessage(audioUrl, transcript, isAI) {
+    function addVoiceMessage(audioUrl, content, isAI) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'}`;
         
+        let messageContent = '';
+        if (audioUrl) {
+            messageContent += `<audio controls src="${audioUrl}"></audio>`;
+        }
+        messageContent += `<div class="voice-transcript">${content}</div>`;
+        
         messageDiv.innerHTML = `
             <div class="voice-message-content">
-                <audio controls src="${audioUrl}"></audio>
-                <div class="voice-transcript">${transcript}</div>
+                ${messageContent}
             </div>
             <div class="voice-message-timestamp">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
         `;
@@ -108,12 +121,20 @@ document.addEventListener('DOMContentLoaded', function() {
         voiceMessages.scrollTop = voiceMessages.scrollHeight;
     }
     
-    // Toggle recording
-    recordButton.addEventListener('click', () => {
-        if (!isRecording) {
-            startRecording();
-        } else {
-            stopRecording();
-        }
+    // Setup event listeners for push-to-talk
+    recordButton.addEventListener('mousedown', startRecording);
+    recordButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startRecording();
+    });
+    
+    recordButton.addEventListener('mouseup', stopRecording);
+    recordButton.addEventListener('mouseleave', stopRecording);
+    recordButton.addEventListener('touchend', stopRecording);
+    recordButton.addEventListener('touchcancel', stopRecording);
+    
+    // Initial setup
+    setupRecording().then(() => {
+        statusText.textContent = 'Hold to Talk';
     });
 });

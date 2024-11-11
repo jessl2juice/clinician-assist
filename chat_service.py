@@ -8,6 +8,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import io
 import tempfile
+import traceback
 
 class ChatService:
     def __init__(self):
@@ -28,40 +29,67 @@ class ChatService:
             # Get AI response
             ai_message = response.choices[0].message.content
             
-            # Create and save the AI response directly
-            chat_message = ChatMessage(user_id=user.id, is_ai_response=True)
+            # Create and save the AI response
+            chat_message = ChatMessage()
+            chat_message.user_id = user.id
+            chat_message.is_ai_response = True
             chat_message.content = ai_message
             
             db.session.add(chat_message)
             
             # Log the interaction (maintaining audit trail)
-            audit_log = AuditLog(
-                user_id=user.id,
-                action='ai_chat_response',
-                details=json.dumps({'message_id': chat_message.id})
-            )
+            audit_log = AuditLog()
+            audit_log.user_id = user.id
+            audit_log.action = 'ai_chat_response'
+            audit_log.details = json.dumps({'message_id': chat_message.id})
+            
             db.session.add(audit_log)
             db.session.commit()
             
             return ai_message
             
         except Exception as e:
-            current_app.logger.error(f"Error getting AI response: {str(e)}")
+            current_app.logger.error(f"Error getting AI response: {str(e)}\n{traceback.format_exc()}")
             return "I apologize, but I'm unable to process your request at the moment. Please try again later."
             
     def process_voice_message(self, audio_data, user):
         try:
+            current_app.logger.info("Starting voice message processing")
+            
             # Convert audio data to WAV format
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
-                audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
-                audio_segment.export(temp_audio.name, format='wav')
+                try:
+                    current_app.logger.info("Converting audio data to WAV format")
+                    audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
+                    audio_segment.export(temp_audio.name, format='wav')
+                except Exception as e:
+                    current_app.logger.error(f"Error converting audio: {str(e)}\n{traceback.format_exc()}")
+                    raise Exception("Failed to convert audio format")
                 
                 # Perform speech recognition
-                with sr.AudioFile(temp_audio.name) as source:
-                    audio = self.recognizer.record(source)
-                    transcript = self.recognizer.recognize_google(audio)
+                try:
+                    current_app.logger.info("Performing speech recognition")
+                    with sr.AudioFile(temp_audio.name) as source:
+                        audio = self.recognizer.record(source)
+                        transcript = self.recognizer.recognize_google(audio)
+                        current_app.logger.info(f"Speech recognition successful: {transcript}")
+                except sr.UnknownValueError:
+                    current_app.logger.error("Speech recognition could not understand the audio")
+                    raise Exception("Could not understand the audio")
+                except sr.RequestError as e:
+                    current_app.logger.error(f"Speech recognition service error: {str(e)}")
+                    raise Exception("Speech recognition service error")
                     
+                # Save user message
+                user_message = ChatMessage()
+                user_message.user_id = user.id
+                user_message.is_ai_response = False
+                user_message.content = transcript
+                db.session.add(user_message)
+                db.session.commit()
+                
                 # Get AI response for the transcribed text
+                current_app.logger.info("Getting AI response")
                 ai_response = self.get_ai_response(transcript, user)
                 
                 return {
@@ -71,8 +99,15 @@ class ChatService:
                 }
                 
         except Exception as e:
-            current_app.logger.error(f"Error processing voice message: {str(e)}")
+            current_app.logger.error(f"Error processing voice message: {str(e)}\n{traceback.format_exc()}")
             return {
                 'success': False,
-                'error': 'Failed to process voice message'
+                'error': str(e) if str(e) != '' else 'Failed to process voice message'
             }
+        finally:
+            # Cleanup temporary files
+            try:
+                if 'temp_audio' in locals():
+                    os.unlink(temp_audio.name)
+            except Exception as e:
+                current_app.logger.error(f"Error cleaning up temporary files: {str(e)}")
