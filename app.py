@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, redirect, url_for, session, request, jsonify, send_from_directory
 from flask_login import current_user, login_required
 from flask_socketio import SocketIO, emit
@@ -9,6 +12,7 @@ from auth import auth
 from admin import admin
 from chat_service import ChatService
 import os
+import traceback
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -20,9 +24,10 @@ Config.init_db(app)
 db.init_app(app)
 login_manager.init_app(app)
 flask_session.init_app(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 chat_service = ChatService()
 
+# Configure login
 login_manager.login_view = 'auth.login'
 
 @login_manager.user_loader
@@ -32,11 +37,19 @@ def load_user(user_id):
 app.register_blueprint(auth, url_prefix='/auth')
 app.register_blueprint(admin, url_prefix='/admin')
 
+def create_directories():
+    voice_messages_dir = os.path.join(app.static_folder or 'static', 'voice_messages')
+    os.makedirs(voice_messages_dir, exist_ok=True)
+
 @app.before_request
 def before_request():
     if current_user.is_authenticated:
         session.permanent = True
         app.permanent_session_lifetime = timedelta(minutes=30)
+    
+    # Create necessary directories if they don't exist
+    with app.app_context():
+        create_directories()
 
 @app.route('/')
 def index():
@@ -65,13 +78,16 @@ def dashboard():
 def handle_voice_message():
     try:
         if current_user.role != 'client':
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+            app.logger.warning(f"Unauthorized voice message attempt by {current_user.email}")
+            return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
         
         if 'audio' not in request.files:
+            app.logger.warning("No audio file in request")
             return jsonify({'success': False, 'error': 'No audio file provided'}), 400
         
         audio_file = request.files['audio']
         if not audio_file.filename:
+            app.logger.warning("Empty audio filename received")
             return jsonify({'success': False, 'error': 'Empty audio file'}), 400
         
         # Process the voice message
@@ -85,21 +101,24 @@ def handle_voice_message():
                 'ai_audio_url': result.get('ai_audio_url')
             })
         
+        error_message = result.get('error', 'Failed to process voice message')
+        app.logger.error(f"Voice message processing error: {error_message}")
         return jsonify({
             'success': False,
-            'error': result.get('error', 'Failed to process voice message')
+            'error': error_message
         }), 500
         
     except Exception as e:
-        app.logger.error(f"Error in handle_voice_message: {str(e)}")
+        error_details = traceback.format_exc()
+        app.logger.error(f"Error in handle_voice_message: {str(e)}\n{error_details}")
         return jsonify({
             'success': False,
-            'error': 'An unexpected error occurred'
+            'error': str(e)
         }), 500
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
+    return send_from_directory(app.static_folder or 'static', filename)
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -109,7 +128,7 @@ def handle_message(data):
     try:
         # Save user message
         user_message = ChatMessage(user_id=current_user.id, is_ai_response=False)
-        user_message.content = data['message']
+        user_message.set_content(data['message'])
         db.session.add(user_message)
         db.session.commit()
         
@@ -132,10 +151,12 @@ def handle_message(data):
         })
         
     except Exception as e:
-        app.logger.error(f"Error in handle_message: {str(e)}")
+        error_details = traceback.format_exc()
+        app.logger.error(f"Error in handle_message: {str(e)}\n{error_details}")
         emit('error', {'message': 'Failed to process message'})
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        create_directories()
     socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, log_output=True)
