@@ -64,18 +64,15 @@ def dashboard():
 @app.route('/voice-message', methods=['POST'])
 @login_required
 def handle_voice_message():
-    if current_user.role != 'client':
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    try:
+        if current_user.role != 'client':
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+            
+        if 'audio' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+            
+        audio_file = request.files['audio']
         
-    if 'audio' not in request.files:
-        return jsonify({'success': False, 'error': 'No audio file provided'}), 400
-        
-    audio_file = request.files['audio']
-    
-    # Process the voice message
-    result = chat_service.process_voice_message(audio_file.read(), current_user)
-    
-    if result['success']:
         # Save the audio file
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         filename = f'voice_message_{timestamp}.wav'
@@ -83,44 +80,60 @@ def handle_voice_message():
         os.makedirs(os.path.dirname(audio_path), exist_ok=True)
         audio_file.save(audio_path)
         
+        # Process the voice message
+        result = chat_service.process_voice_message(audio_file.read(), current_user)
+        
+        if result.get('success', False):
+            return jsonify({
+                'success': True,
+                'ai_audio_url': result.get('ai_audio_url')
+            })
+        
         return jsonify({
-            'success': True,
-            'audioUrl': url_for('static', filename=f'voice_messages/{filename}'),
-            'transcript': result['transcript'],
-            'ai_response': result['ai_response']
-        })
-    
-    return jsonify(result), 500
+            'success': False,
+            'error': result.get('error', 'Failed to process voice message')
+        }), 500
+        
+    except Exception as e:
+        app.logger.error(f"Error in handle_voice_message: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'An unexpected error occurred'
+        }), 500
 
 @socketio.on('send_message')
-@login_required
 def handle_message(data):
-    if current_user.role != 'client':
+    if not current_user.is_authenticated or current_user.role != 'client':
         return
     
-    # Save user message directly
-    user_message = ChatMessage(user_id=current_user.id, is_ai_response=False)
-    user_message.content = data['message']
-    db.session.add(user_message)
-    db.session.commit()
-    
-    # Emit the user message to the client
-    emit('new_message', {
-        'content': data['message'],
-        'timestamp': user_message.timestamp.isoformat(),
-        'is_ai_response': False
-    })
-    
-    # Get and emit AI response
-    emit('typing_indicator', {'typing': True})
-    ai_response = chat_service.get_ai_response(data['message'], current_user)
-    emit('typing_indicator', {'typing': False})
-    
-    emit('new_message', {
-        'content': ai_response,
-        'timestamp': datetime.utcnow().isoformat(),
-        'is_ai_response': True
-    })
+    try:
+        # Save user message
+        user_message = ChatMessage(user_id=current_user.id, is_ai_response=False)
+        user_message.content = data['message']
+        db.session.add(user_message)
+        db.session.commit()
+        
+        # Emit the user message
+        emit('new_message', {
+            'content': data['message'],
+            'timestamp': user_message.timestamp.isoformat(),
+            'is_ai_response': False
+        })
+        
+        # Get and emit AI response
+        emit('typing_indicator', {'typing': True})
+        ai_response = chat_service.get_ai_response(data['message'], current_user)
+        emit('typing_indicator', {'typing': False})
+        
+        emit('new_message', {
+            'content': ai_response,
+            'timestamp': datetime.utcnow().isoformat(),
+            'is_ai_response': True
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in handle_message: {str(e)}")
+        emit('error', {'message': 'Failed to process message'})
 
 if __name__ == '__main__':
     with app.app_context():

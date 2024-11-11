@@ -1,9 +1,8 @@
 import openai
 from flask import current_app
 import os
-from models import ChatMessage, AuditLog
+from models import ChatMessage
 from extensions import db
-import json
 import traceback
 from datetime import datetime
 
@@ -22,10 +21,8 @@ class ChatService:
                 max_tokens=150
             )
             
-            # Get AI response
             ai_message = response.choices[0].message.content
             
-            # Create and save the AI response
             chat_message = ChatMessage()
             chat_message.user_id = user.id
             chat_message.is_ai_response = True
@@ -37,44 +34,37 @@ class ChatService:
             return ai_message
             
         except Exception as e:
-            current_app.logger.error(f"Error getting AI response: {str(e)}\n{traceback.format_exc()}")
+            current_app.logger.error(f"Error getting AI response: {str(e)}")
             return "I apologize, but I'm unable to process your request at the moment. Please try again later."
 
     def generate_audio_response(self, text):
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                current_app.logger.info(f"Generating audio response (attempt {attempt + 1}/{max_retries})")
+        try:
+            # Generate speech using OpenAI TTS API
+            response = self.client.audio.speech.create(
+                model="tts-1",
+                voice="alloy",
+                input=text
+            )
+            
+            # Create unique filename
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            filename = f'ai_response_{timestamp}.mp3'
+            
+            # Ensure static folder exists
+            static_folder = current_app.static_folder or 'static'
+            voice_messages_dir = os.path.join(static_folder, 'voice_messages')
+            os.makedirs(voice_messages_dir, exist_ok=True)
+            
+            # Save the audio file
+            audio_path = os.path.join(voice_messages_dir, filename)
+            response.stream_to_file(audio_path)
+            
+            current_app.logger.info(f"Audio response generated successfully: {filename}")
+            return f'voice_messages/{filename}'
                 
-                # Generate speech using OpenAI TTS API
-                response = self.client.audio.speech.create(
-                    model="tts-1",
-                    voice="alloy",
-                    input=text
-                )
-                
-                # Create unique filename
-                timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-                filename = f'ai_response_{timestamp}.mp3'
-                
-                # Ensure static folder exists
-                static_folder = current_app.static_folder or 'static'
-                voice_messages_dir = os.path.join(static_folder, 'voice_messages')
-                os.makedirs(voice_messages_dir, exist_ok=True)
-                
-                # Save the audio file
-                audio_path = os.path.join(voice_messages_dir, filename)
-                response.stream_to_file(audio_path)
-                
-                current_app.logger.info(f"Audio response generated successfully: {filename}")
-                return f'voice_messages/{filename}'
-                
-            except Exception as e:
-                current_app.logger.error(f"Error generating audio response (attempt {attempt + 1}): {str(e)}")
-                if attempt == max_retries - 1:
-                    current_app.logger.error("Max retries reached for audio generation")
-                    return None
-                continue
+        except Exception as e:
+            current_app.logger.error(f"Error generating audio response: {str(e)}")
+            return None
             
     def process_voice_message(self, audio_data, user):
         try:
@@ -96,7 +86,7 @@ class ChatService:
                 f.write(audio_data)
             
             try:
-                # Use OpenAI's Audio API for speech-to-text (internal use only)
+                # Process speech to text internally
                 with open(temp_path, 'rb') as audio_file:
                     transcript = self.client.audio.transcriptions.create(
                         model="whisper-1",
@@ -139,7 +129,7 @@ class ChatService:
                     current_app.logger.error(f"Error cleaning up temporary file: {str(e)}")
                 
         except Exception as e:
-            current_app.logger.error(f"Error processing voice message: {str(e)}\n{traceback.format_exc()}")
+            current_app.logger.error(f"Error processing voice message: {str(e)}")
             return {
                 'success': False,
                 'error': 'Failed to process voice message'
