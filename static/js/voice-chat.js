@@ -13,8 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function scrollToBottom(container) {
         if (!container) return;
-        const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
-        
+        const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
         if (shouldScroll) {
             container.scrollTop = container.scrollHeight;
             container.style.scrollBehavior = 'smooth';
@@ -30,11 +29,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            const mimeType = 'audio/webm';
-            mediaRecorder = new MediaRecorder(stream, {
-                mimeType: mimeType,
+            const options = {
+                mimeType: 'audio/webm;codecs=opus',
                 audioBitsPerSecond: 16000
-            });
+            };
+            
+            mediaRecorder = new MediaRecorder(stream, options);
             
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                const audioBlob = new Blob(audioChunks, { type: mimeType });
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 if (audioBlob.size === 0) {
                     showStatus('No audio recorded', 2000);
                     return;
@@ -132,29 +132,50 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function playAudio(audio, playPauseBtn) {
-        if (!audio || !playPauseBtn) return;
-        
-        if (currentlyPlaying && currentlyPlaying !== audio) {
-            stopCurrentAudio();
+    async function sendVoiceMessage(audioBlob) {
+        if (!audioBlob || audioBlob.size === 0) {
+            showStatus('No audio to send', 2000);
+            return;
         }
         
-        if (audio.paused) {
-            audio.play()
-                .then(() => {
-                    playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
-                    currentlyPlaying = audio;
-                })
-                .catch(err => {
-                    console.error('Error playing audio:', err);
-                    playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
-                    currentlyPlaying = null;
-                    showStatus('Error playing audio', 2000);
-                });
-        } else {
-            audio.pause();
-            playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
-            currentlyPlaying = null;
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.webm');
+        
+        showStatus('Processing...', 0);
+        
+        try {
+            const response = await fetch('/voice-message', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || `Server responded with ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                if (data.transcript) {
+                    addVoiceMessage(null, data.transcript, false);
+                }
+                
+                if (data.ai_audio_url && data.ai_response) {
+                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
+                }
+                
+                showStatus('Hold to Talk', 0);
+            } else {
+                throw new Error(data.error || 'Failed to process message');
+            }
+        } catch (error) {
+            console.error('Error sending voice message:', error);
+            showStatus('Error: ' + (error.message || 'Failed to send message'), 3000);
+            addVoiceMessage(null, 'Error: Failed to send voice message. Please try again.', true);
         }
     }
     
@@ -200,7 +221,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const playPauseBtn = messageDiv.querySelector('.play-pause-btn');
             
             if (audio && playPauseBtn) {
-                playPauseBtn.addEventListener('click', () => playAudio(audio, playPauseBtn));
+                playPauseBtn.addEventListener('click', () => {
+                    if (currentlyPlaying && currentlyPlaying !== audio) {
+                        stopCurrentAudio();
+                    }
+                    
+                    if (audio.paused) {
+                        audio.play()
+                            .then(() => {
+                                playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+                                currentlyPlaying = audio;
+                            })
+                            .catch(err => {
+                                console.error('Error playing audio:', err);
+                                playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                                currentlyPlaying = null;
+                                showStatus('Error playing audio', 2000);
+                            });
+                    } else {
+                        audio.pause();
+                        playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+                        currentlyPlaying = null;
+                    }
+                });
                 
                 audio.addEventListener('ended', () => {
                     playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
@@ -210,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (isAI) {
                     audio.addEventListener('canplaythrough', () => {
                         if (!currentlyPlaying) {
-                            playAudio(audio, playPauseBtn);
+                            playPauseBtn.click();
                         }
                     }, { once: true });
                 }
@@ -221,78 +264,48 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToBottom(voiceMessages);
     }
     
-    async function sendVoiceMessage(audioBlob) {
-        if (!audioBlob || audioBlob.size === 0) {
-            showStatus('No audio to send', 2000);
-            return;
-        }
-        
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'audio.webm');
-        
-        showStatus('Processing...', 0);
-        
-        try {
-            const response = await fetch('/voice-message', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server responded with ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                if (data.transcript) {
-                    addVoiceMessage(null, data.transcript, false);
-                }
-                
-                if (data.ai_audio_url && data.ai_response) {
-                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
-                }
-                
-                showStatus('Hold to Talk', 0);
-            } else {
-                throw new Error(data.error || 'Failed to process message');
-            }
-        } catch (error) {
-            console.error('Error sending voice message:', error);
-            showStatus('Error: ' + (error.message || 'Failed to send message'), 3000);
-            
-            // Add error message to chat
-            addVoiceMessage(null, 'Error: Failed to send voice message. Please try again.', true);
-        }
-    }
-    
     // Event Listeners
     if (recordButton) {
-        recordButton.addEventListener('mousedown', startRecording);
-        recordButton.addEventListener('touchstart', (e) => {
+        let isRecording = false;
+        
+        recordButton.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            startRecording();
+            if (!isRecording) {
+                isRecording = true;
+                startRecording();
+            }
         });
         
-        recordButton.addEventListener('mouseup', stopRecording);
-        recordButton.addEventListener('mouseleave', stopRecording);
-        recordButton.addEventListener('touchend', stopRecording);
-        recordButton.addEventListener('touchcancel', stopRecording);
+        recordButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!isRecording) {
+                isRecording = true;
+                startRecording();
+            }
+        });
+        
+        const stopRecordingHandler = () => {
+            if (isRecording) {
+                isRecording = false;
+                stopRecording();
+            }
+        };
+        
+        recordButton.addEventListener('mouseup', stopRecordingHandler);
+        recordButton.addEventListener('mouseleave', stopRecordingHandler);
+        recordButton.addEventListener('touchend', stopRecordingHandler);
+        recordButton.addEventListener('touchcancel', stopRecordingHandler);
     }
     
     // Add scroll event listener to handle new messages
     if (voiceMessages) {
-        voiceMessages.addEventListener('scroll', function() {
-            voiceMessages.style.scrollBehavior = 'auto';
+        const observer = new MutationObserver(() => {
+            scrollToBottom(voiceMessages);
         });
-        
-        // Observe voice messages for changes
-        const observer = new MutationObserver(() => scrollToBottom(voiceMessages));
         observer.observe(voiceMessages, { childList: true, subtree: true });
+        
+        // Initial scroll to bottom
+        scrollToBottom(voiceMessages);
     }
     
     // Initial setup

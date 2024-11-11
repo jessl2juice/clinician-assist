@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container">
-    <div class="text-center mb-5">
+    <div class="text-center mb-3">
         <div class="logo-container">
             <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="ca-logo dashboard-logo">
         </div>
@@ -30,6 +30,12 @@
                         </li>
                     </ul>
 
+                    <!-- Error Alert -->
+                    <div id="error-alert" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+                        <span id="error-message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+
                     <!-- Tab Content -->
                     <div class="tab-content flex-grow-1" id="chatTabsContent">
                         <!-- Voice Chat Tab -->
@@ -46,21 +52,25 @@
                                     </div>
                                 </div>
                                 
-                                <div class="voice-messages" id="voice-messages">
-                                    <!-- Voice messages will be added here dynamically -->
+                                <div class="voice-messages-wrapper">
+                                    <div class="voice-messages" id="voice-messages">
+                                        <!-- Voice messages will be added here dynamically -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Text Chat Tab -->
                         <div class="tab-pane fade h-100" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
-                            <div class="chat-messages" id="chat-messages">
-                                {% for message in messages %}
-                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %}">
-                                    <div class="message-content">{{ message.content }}</div>
-                                    <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
+                            <div class="chat-messages-wrapper">
+                                <div class="chat-messages" id="chat-messages">
+                                    {% for message in messages %}
+                                    <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %}">
+                                        <div class="message-content">{{ message.content }}</div>
+                                        <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
                             <div class="typing-indicator" id="typing-indicator" style="display: none;">
                                 <span class="dot"></span>
@@ -94,15 +104,25 @@
         const chatForm = document.getElementById('chat-form');
         const messageInput = document.getElementById('message-input');
         const typingIndicator = document.getElementById('typing-indicator');
+        const errorAlert = document.getElementById('error-alert');
+        const errorMessage = document.getElementById('error-message');
 
-        function scrollToBottom() {
-            if (!chatMessages) return;
-            const shouldScroll = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 100;
-            
-            if (shouldScroll) {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                chatMessages.style.scrollBehavior = 'smooth';
+        function showError(message) {
+            if (errorAlert && errorMessage) {
+                errorMessage.textContent = message;
+                errorAlert.style.display = 'block';
+                setTimeout(() => {
+                    errorAlert.style.display = 'none';
+                }, 5000);
             }
+        }
+
+        function scrollToBottom(container) {
+            if (!container) return;
+            const scrollHeight = container.scrollHeight;
+            const height = container.clientHeight;
+            const maxScrollTop = scrollHeight - height;
+            container.scrollTop = maxScrollTop > 0 ? maxScrollTop : 0;
         }
         
         function formatTimestamp(timestamp) {
@@ -119,17 +139,29 @@
                 <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
             `;
             
-            chatMessages.appendChild(messageDiv);
-            scrollToBottom();
+            if (chatMessages) {
+                chatMessages.appendChild(messageDiv);
+                scrollToBottom(chatMessages);
+            }
         }
 
-        chatForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (message) {
-                socket.emit('send_message', { message: message });
-                messageInput.value = '';
-            }
+        if (chatForm) {
+            chatForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                if (message) {
+                    socket.emit('send_message', { message: message });
+                    messageInput.value = '';
+                }
+            });
+        }
+
+        socket.on('connect_error', function(error) {
+            showError('Connection error. Please try again later.');
+        });
+
+        socket.on('error', function(data) {
+            showError(data.message || 'An error occurred');
         });
 
         socket.on('new_message', function(data) {
@@ -137,23 +169,30 @@
         });
 
         socket.on('typing_indicator', function(data) {
-            typingIndicator.style.display = data.typing ? 'block' : 'none';
-            if (data.typing) {
-                scrollToBottom();
+            if (typingIndicator) {
+                typingIndicator.style.display = data.typing ? 'block' : 'none';
+                if (data.typing) {
+                    scrollToBottom(chatMessages);
+                }
             }
         });
 
-        // Initial scroll to bottom
-        scrollToBottom();
-        
-        // Add scroll event listener to handle new messages
-        chatMessages.addEventListener('scroll', function() {
-            chatMessages.style.scrollBehavior = 'auto';
+        // Initialize scrolling for both chat containers
+        const messageContainers = [chatMessages, document.getElementById('voice-messages')];
+        messageContainers.forEach(container => {
+            if (container) {
+                scrollToBottom(container);
+                
+                // Add scroll event listener
+                container.addEventListener('scroll', function() {
+                    container.style.scrollBehavior = 'auto';
+                });
+                
+                // Observe for changes
+                const observer = new MutationObserver(() => scrollToBottom(container));
+                observer.observe(container, { childList: true, subtree: true });
+            }
         });
-        
-        // Observe chat messages for changes
-        const observer = new MutationObserver(scrollToBottom);
-        observer.observe(chatMessages, { childList: true, subtree: true });
     });
 </script>
 {% endblock %}
