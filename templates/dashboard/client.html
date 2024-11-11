@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Client Dashboard</h1>
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Welcome, {{ current_user.email }}</h5>
-        <p class="card-text">You are logged in as a client.</p>
+<div class="container">
+    <div class="text-center mb-4">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="ca-logo dashboard-logo">
+        </div>
+        <h1>Welcome Casey!</h1>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Client Dashboard</h5>
+            <p class="card-text">You are logged in as a client.</p>
+        </div>
     </div>
 </div>
 {% endblock %}

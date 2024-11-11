@@ -21,6 +21,12 @@
     transform: scale(1.05);
 }
 
+/* Dashboard specific logo */
+.dashboard-logo {
+    width: 150px;
+    margin: 2rem auto;
+}
+
 /* Card styling with shadows and hover effects */
 .card {
     border: none;
@@ -161,6 +167,11 @@ h2, .h2 {
 
     .ca-logo {
         width: 100px;
+    }
+
+    .dashboard-logo {
+        width: 120px;
+        margin: 1.5rem auto;
     }
 }
 
