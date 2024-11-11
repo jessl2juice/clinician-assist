@@ -26,12 +26,6 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.brand-logo {
-    height: 120px;
-    width: auto;
-    margin-bottom: 1.5rem;
-}
-
 .brand-title {
     font-size: 2.5rem;
     font-weight: 700;
@@ -125,28 +119,6 @@ h2, .h2 {
     margin-bottom: 1rem;
 }
 
-/* Navigation styling */
-.navbar {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 1rem 0;
-}
-
-.navbar-brand {
-    font-weight: 600;
-    font-size: 1.25rem;
-}
-
-/* Logo styling */
-.navbar-logo {
-    height: 40px;
-    width: auto;
-    transition: transform 0.2s ease-in-out;
-}
-
-.navbar-brand:hover .navbar-logo {
-    transform: scale(1.05);
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .container {
@@ -168,10 +140,17 @@ h2, .h2 {
     .brand-title {
         font-size: 2rem;
     }
-    
-    .navbar-logo {
-        height: 32px;
-    }
+}
+
+/* Navigation styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 1rem 0;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.25rem;
 }
 
 /* Footer styling */
