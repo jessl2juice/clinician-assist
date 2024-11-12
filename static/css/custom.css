@@ -38,10 +38,21 @@
     transform: scale(1.05);
 }
 
-/* Dashboard specific logo */
-.dashboard-logo {
-    width: 100px; /* Reduced from 150px */
-    margin: 0.5rem auto; /* Adjusted margin */
+/* Navbar logo styling */
+.navbar-logo {
+    width: 40px;
+    height: auto;
+    transition: transform 0.2s ease-in-out;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.navbar-brand:hover .navbar-logo {
+    transform: scale(1.05);
 }
 
 /* Card styling with shadows and hover effects */
@@ -64,20 +75,6 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-}
-
-/* Logo styling */
-.logo-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 0.5rem; /* Updated spacing */
-}
-
-/* Card specific logo */
-.dashboard-logo {
-    width: 100px; /* Reduced from 150px */
-    margin: 0.5rem auto; /* Adjusted margin */
 }
 
 /* Welcome title */
@@ -255,11 +252,6 @@ h2, .h2 {
         width: 100px;
     }
 
-    .dashboard-logo {
-        width: 100px;
-        margin: 1.5rem auto;
-    }
-
     .welcome-title {
         font-size: 2rem;
         margin: 0.75rem 0 0.25rem;
@@ -277,12 +269,16 @@ h2, .h2 {
     .dashboard-text {
         font-size: 1rem;
     }
+
+    .navbar-logo {
+        width: 32px;
+    }
 }
 
 /* Navigation styling */
 .navbar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 1rem 0;
+    padding: 0.5rem 0;
 }
 
 .navbar-brand {
@@ -432,11 +428,6 @@ h2, .h2 {
 
     .ca-logo {
         width: 100px;
-    }
-
-    .dashboard-logo {
-        width: 100px;
-        margin: 1.5rem auto;
     }
 
     .welcome-title {
