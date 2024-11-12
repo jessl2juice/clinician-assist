@@ -37,10 +37,13 @@ class ChatService:
             
         except Exception as e:
             current_app.logger.error(f"Error getting AI response: {str(e)}")
-            return "I apologize, but I'm unable to process your request at the moment. Please try again later."
+            return None
 
     def generate_audio_response(self, text):
         try:
+            if not text:
+                raise ValueError("No text provided for audio generation")
+
             current_app.logger.info("Generating audio response")
             response = self.client.audio.speech.create(
                 model="tts-1",
@@ -58,9 +61,10 @@ class ChatService:
             
             audio_path = os.path.join(voice_messages_dir, filename)
             
-            # Stream response to file with error handling
             try:
                 response.stream_to_file(audio_path)
+                if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+                    raise ValueError("Failed to generate audio file")
             except Exception as e:
                 current_app.logger.error(f"Error streaming audio to file: {str(e)}")
                 if os.path.exists(audio_path):
@@ -82,10 +86,16 @@ class ChatService:
             if not audio_file or not audio_file.content_type:
                 raise ValueError("Invalid audio file")
             
+            if 'audio/webm' not in audio_file.content_type:
+                raise ValueError(f"Unsupported audio format: {audio_file.content_type}. Only WebM audio is supported.")
+            
             # Read audio file bytes
             audio_bytes = audio_file.read()
             if not audio_bytes:
                 raise ValueError("Empty audio file")
+            
+            if len(audio_bytes) < 100:  # Basic size check
+                raise ValueError("Audio file too small, please record a longer message")
                 
             current_app.logger.info(f"Audio file read, size: {len(audio_bytes)} bytes")
             
@@ -157,7 +167,7 @@ class ChatService:
             current_app.logger.error(error_msg)
             return {
                 'success': False,
-                'error': 'Failed to process voice message'
+                'error': str(e) or 'Failed to process voice message'
             }
         finally:
             # Cleanup temporary file

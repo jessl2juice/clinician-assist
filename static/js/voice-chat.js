@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm'
+                mimeType: 'audio/webm;codecs=opus'
             });
             
             mediaRecorder.ondataavailable = (event) => {
@@ -28,7 +28,25 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                if (audioChunks.length === 0) {
+                    console.error('No audio data recorded');
+                    recordButtonText.textContent = 'No audio recorded, try again';
+                    setTimeout(() => {
+                        recordButtonText.textContent = 'Press and Hold to Speak';
+                    }, 3000);
+                    return;
+                }
+
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+                if (audioBlob.size === 0) {
+                    console.error('Empty audio blob created');
+                    recordButtonText.textContent = 'Recording failed, try again';
+                    setTimeout(() => {
+                        recordButtonText.textContent = 'Press and Hold to Speak';
+                    }, 3000);
+                    return;
+                }
+
                 await sendVoiceMessage(audioBlob);
                 audioChunks = [];
             };
@@ -36,7 +54,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         } catch (err) {
             console.error('Error accessing microphone:', err);
-            recordButtonText.textContent = 'Microphone access denied';
+            recordButtonText.textContent = err.message || 'Microphone access denied';
+            setTimeout(() => {
+                recordButtonText.textContent = 'Press and Hold to Speak';
+            }, 3000);
             return false;
         }
     }
@@ -55,6 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
+            audioChunks = []; // Clear any previous chunks
             mediaRecorder.start(100);
             startTime = Date.now();
             recordButton.classList.add('recording');
@@ -62,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
             recordingTimer = setInterval(updateRecordingTime, 1000);
         } catch (err) {
             console.error('Error starting recording:', err);
-            recordButtonText.textContent = 'Error starting recording';
+            recordButtonText.textContent = err.message || 'Error starting recording';
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
             }, 3000);
@@ -72,14 +94,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function stopRecording() {
         try {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
                 clearInterval(recordingTimer);
                 recordButton.classList.remove('recording');
                 recordButtonText.textContent = 'Processing...';
+                mediaRecorder.stop();
             }
         } catch (err) {
             console.error('Error stopping recording:', err);
-            recordButtonText.textContent = 'Error stopping recording';
+            recordButtonText.textContent = err.message || 'Error stopping recording';
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
             }, 3000);
@@ -111,10 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(err => {
                     console.error('Error playing audio:', err);
-                    recordButtonText.textContent = 'Error playing audio';
-                    setTimeout(() => {
-                        recordButtonText.textContent = 'Press and Hold to Speak';
-                    }, 3000);
+                    playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
                 });
         } else {
             audio.pause();
@@ -125,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function addVoiceMessage(audioUrl, transcript, isAI) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'}`;
+        messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
         
         let messageContent = '';
         
@@ -195,7 +214,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
             
             const data = await response.json();
