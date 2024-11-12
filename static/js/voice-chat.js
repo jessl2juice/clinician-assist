@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('audio', audioBlob, 'voice_message.webm');
         
         try {
+            recordButtonText.textContent = 'Sending message...';
             const response = await fetch('/voice-message', {
                 method: 'POST',
                 body: formData
@@ -132,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) {
                 console.error('Error parsing response:', {
                     responseText,
-                    error: e,
+                    error: e.message,
                     timestamp: new Date().toISOString()
                 });
                 throw new Error('Invalid server response');
@@ -212,18 +213,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Error auto-playing audio:', {
                             name: err.name,
                             message: err.message,
-                            stack: err.stack
+                            stack: err.stack,
+                            timestamp: new Date().toISOString()
                         });
                     });
                 }, { once: true });
             }
         }
-        
-        messageDiv.innerHTML = `
-            <div class="voice-message-timestamp">
-                ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-        `;
         
         voiceMessages.appendChild(messageDiv);
         voiceMessages.scrollTop = voiceMessages.scrollHeight;
