@@ -378,13 +378,14 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Chat messages container */
 .chat-messages {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto !important;
     padding: 1rem;
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 1rem;
     height: calc(100vh - 400px);
     min-height: 300px;
+    margin-top: 1rem;
 }
 
 /* Message animations */
@@ -406,22 +407,19 @@ document.addEventListener('DOMContentLoaded', function() {
     position: sticky;
     bottom: 0;
     background: white;
+    z-index: 100;
     padding: 1rem;
     border-top: 1px solid var(--bs-border-color);
-    z-index: 100;
-    margin-top: auto;
-    transition: transform 0.3s ease;
 }
 
 /* Typing indicator */
 .typing-indicator {
     position: sticky;
-    bottom: 100%;
-    background: rgba(255, 255, 255, 0.9);
+    top: 0;
     padding: 0.5rem;
-    text-align: center;
+    background: white;
     z-index: 99;
-    transition: opacity 0.3s ease;
+    text-align: center;
 }
 
 .typing-indicator .dot {
@@ -447,10 +445,16 @@ document.addEventListener('DOMContentLoaded', function() {
     30% { transform: translateY(-4px); }
 }
 
-/* Monitoring messages */
+/* Chat monitoring styles */
+.chat-monitoring-card {
+    height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+}
+
 .chat-monitoring-messages {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto !important;
     padding: 1rem;
     display: flex;
     flex-direction: column;
