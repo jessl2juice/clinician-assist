@@ -44,6 +44,11 @@ class ChatMessage(db.Model):
     content = db.Column(db.Text, nullable=False)
     is_ai_response = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    message_type = db.Column(db.String(10), default='text')  # 'text' or 'voice'
+    voice_url = db.Column(db.String(255))  # URL for voice messages
+    monitored = db.Column(db.Boolean, default=False)  # For admin monitoring
+    flagged = db.Column(db.Boolean, default=False)  # For flagging concerning messages
+    monitor_notes = db.Column(db.Text)  # Admin notes on monitored messages
 
     def set_content(self, content):
         self.content = content

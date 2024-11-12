@@ -1,12 +1,13 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models import User, AuditLog
-from extensions import db
+from flask_socketio import emit
+from models import User, AuditLog, ChatMessage
+from extensions import db, socketio
 from utils import log_audit
 from functools import wraps
 from forms import EditUserForm
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 admin = Blueprint('admin', __name__)
 
@@ -82,6 +83,94 @@ def system_status():
     }
 
     return render_template('admin/system_status.html', metrics=metrics)
+
+@admin.route('/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    users = User.query.all()
+    return render_template('dashboard/admin.html', users=users)
+
+@socketio.on('admin_get_messages')
+@login_required
+def handle_get_messages(data):
+    if current_user.role != 'admin':
+        return
+
+    query = ChatMessage.query.join(User).order_by(desc(ChatMessage.timestamp))
+
+    if data.get('user_id'):
+        query = query.filter(ChatMessage.user_id == data['user_id'])
+    if data.get('message_type'):
+        query = query.filter(ChatMessage.message_type == data['message_type'])
+    if data.get('flagged') == 'true':
+        query = query.filter(ChatMessage.flagged == True)
+
+    messages = query.limit(50).all()
+    message_list = [{
+        'id': msg.id,
+        'content': msg.content,
+        'user_email': msg.user.email,
+        'timestamp': msg.timestamp.isoformat(),
+        'message_type': msg.message_type,
+        'voice_url': msg.voice_url,
+        'flagged': msg.flagged,
+        'monitor_notes': msg.monitor_notes
+    } for msg in messages]
+
+    emit('admin_messages', {'messages': message_list})
+
+@socketio.on('admin_get_message_details')
+@login_required
+def handle_get_message_details(data):
+    if current_user.role != 'admin':
+        return
+
+    message = ChatMessage.query.get(data['message_id'])
+    if message:
+        details = {
+            'id': message.id,
+            'content': message.content,
+            'user_email': message.user.email,
+            'timestamp': message.timestamp.isoformat(),
+            'message_type': message.message_type,
+            'voice_url': message.voice_url,
+            'flagged': message.flagged,
+            'monitor_notes': message.monitor_notes
+        }
+        emit('admin_message_details', details)
+
+@socketio.on('admin_flag_message')
+@login_required
+def handle_flag_message(data):
+    if current_user.role != 'admin':
+        return
+
+    message = ChatMessage.query.get(data['message_id'])
+    if message:
+        message.flagged = data['flagged']
+        db.session.commit()
+        log_audit(current_user.id, 'message_flagged', f'Message {message.id} flagged by admin', request.remote_addr)
+        emit('admin_message_updated', {
+            'message_id': message.id,
+            'flagged': message.flagged
+        })
+
+@socketio.on('admin_save_notes')
+@login_required
+def handle_save_notes(data):
+    if current_user.role != 'admin':
+        return
+
+    message = ChatMessage.query.get(data['message_id'])
+    if message:
+        message.monitor_notes = data['notes']
+        db.session.commit()
+        log_audit(current_user.id, 'message_notes_updated', f'Monitoring notes updated for message {message.id}', request.remote_addr)
+        emit('admin_message_updated', {
+            'message_id': message.id,
+            'monitor_notes': message.monitor_notes
+        })
 
 @admin.route('/users/<int:user_id>/toggle_active', methods=['POST'])
 @login_required

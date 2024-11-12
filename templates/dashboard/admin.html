@@ -2,35 +2,297 @@
 
 {% block content %}
 <div class="container">
-    <h1>Admin Dashboard</h1>
-    <div class="row">
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">User Management</h5>
-                    <p class="card-text">Manage system users, their roles, and permissions.</p>
-                    <a href="{{ url_for('admin.user_list') }}" class="btn btn-primary">Manage Users</a>
+    <div class="text-center mb-4">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="ca-logo dashboard-logo">
+        </div>
+        <h1 class="welcome-title">Admin Dashboard</h1>
+        <p class="dashboard-tagline">Chat Monitoring Interface</p>
+    </div>
+
+    <!-- Chat Monitoring Section -->
+    <div class="card chat-monitoring-card">
+        <div class="card-body">
+            <h5 class="card-title dashboard-subtitle">Chat Monitoring</h5>
+            
+            <!-- Filters -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <select id="userFilter" class="form-select">
+                        <option value="">All Users</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.email }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="messageTypeFilter" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="text">Text Messages</option>
+                        <option value="voice">Voice Messages</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="flaggedFilter" class="form-select">
+                        <option value="">All Messages</option>
+                        <option value="true">Flagged Only</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button id="refreshChat" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">System Status</h5>
-                    <p class="card-text">View system metrics and performance.</p>
-                    <a href="{{ url_for('admin.system_status') }}" class="btn btn-primary">View Status</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Audit Logs</h5>
-                    <p class="card-text">Review system audit logs and user activities.</p>
-                    <a href="{{ url_for('admin.audit_logs') }}" class="btn btn-primary">View Logs</a>
-                </div>
+
+            <!-- Chat Messages -->
+            <div class="chat-monitoring-messages" id="monitoringMessages">
+                <!-- Messages will be loaded here dynamically -->
             </div>
         </div>
     </div>
 </div>
+
+<!-- Message Details Modal -->
+<div class="modal fade" id="messageDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="message-details"></div>
+                <div class="form-group mt-3">
+                    <label for="monitorNotes">Monitoring Notes:</label>
+                    <textarea id="monitorNotes" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-warning" id="flagMessage">
+                    <i class="bi bi-flag"></i> Flag Message
+                </button>
+                <button type="button" class="btn btn-primary" id="saveNotes">Save Notes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Socket.IO client -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+<!-- Admin monitoring script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io();
+    const monitoringMessages = document.getElementById('monitoringMessages');
+    const userFilter = document.getElementById('userFilter');
+    const messageTypeFilter = document.getElementById('messageTypeFilter');
+    const flaggedFilter = document.getElementById('flaggedFilter');
+    const refreshButton = document.getElementById('refreshChat');
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Add new message to monitoring view
+    function addMonitoringMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'monitoring-message';
+        messageDiv.dataset.messageId = message.id;
+        
+        let content = message.message_type === 'voice' 
+            ? `<audio controls src="${message.voice_url}" class="w-100"></audio>`
+            : `<div class="message-text">${message.content}</div>`;
+
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <span class="user-email">${message.user_email}</span>
+                <span class="message-type badge bg-info">${message.message_type}</span>
+                <span class="timestamp">${formatTimestamp(message.timestamp)}</span>
+                ${message.flagged ? '<span class="badge bg-warning ms-2">Flagged</span>' : ''}
+            </div>
+            <div class="message-content">${content}</div>
+            <div class="message-footer">
+                <button class="btn btn-sm btn-primary view-details" data-message-id="${message.id}">
+                    <i class="bi bi-eye"></i> View Details
+                </button>
+            </div>
+        `;
+        
+        monitoringMessages.insertBefore(messageDiv, monitoringMessages.firstChild);
+    }
+
+    // Load messages with current filters
+    function loadMessages() {
+        const filters = {
+            user_id: userFilter.value,
+            message_type: messageTypeFilter.value,
+            flagged: flaggedFilter.value
+        };
+        
+        socket.emit('admin_get_messages', filters);
+    }
+
+    // Event listeners for filters
+    userFilter.addEventListener('change', loadMessages);
+    messageTypeFilter.addEventListener('change', loadMessages);
+    flaggedFilter.addEventListener('change', loadMessages);
+    refreshButton.addEventListener('click', loadMessages);
+
+    // Socket event handlers
+    socket.on('admin_messages', function(data) {
+        monitoringMessages.innerHTML = '';
+        data.messages.forEach(addMonitoringMessage);
+    });
+
+    socket.on('new_monitored_message', function(message) {
+        addMonitoringMessage(message);
+    });
+
+    // Handle message details view
+    monitoringMessages.addEventListener('click', function(e) {
+        if (e.target.closest('.view-details')) {
+            const messageId = e.target.closest('.view-details').dataset.messageId;
+            socket.emit('admin_get_message_details', { message_id: messageId });
+        }
+    });
+
+    // Handle message details response
+    socket.on('admin_message_details', function(details) {
+        const modal = new bootstrap.Modal(document.getElementById('messageDetailsModal'));
+        const detailsDiv = document.querySelector('.message-details');
+        const notesTextarea = document.getElementById('monitorNotes');
+        const flagButton = document.getElementById('flagMessage');
+        const saveButton = document.getElementById('saveNotes');
+
+        detailsDiv.innerHTML = `
+            <p><strong>User:</strong> ${details.user_email}</p>
+            <p><strong>Timestamp:</strong> ${formatTimestamp(details.timestamp)}</p>
+            <p><strong>Type:</strong> ${details.message_type}</p>
+            <div class="message-content mt-3">
+                ${details.message_type === 'voice' 
+                    ? `<audio controls src="${details.voice_url}" class="w-100"></audio>`
+                    : `<div class="message-text">${details.content}</div>`
+                }
+            </div>
+        `;
+
+        notesTextarea.value = details.monitor_notes || '';
+        flagButton.dataset.messageId = details.id;
+        saveButton.dataset.messageId = details.id;
+
+        modal.show();
+    });
+
+    // Handle flagging and saving notes
+    document.getElementById('flagMessage').addEventListener('click', function() {
+        const messageId = this.dataset.messageId;
+        socket.emit('admin_flag_message', { 
+            message_id: messageId,
+            flagged: true
+        });
+    });
+
+    document.getElementById('saveNotes').addEventListener('click', function() {
+        const messageId = this.dataset.messageId;
+        const notes = document.getElementById('monitorNotes').value;
+        socket.emit('admin_save_notes', {
+            message_id: messageId,
+            notes: notes
+        });
+    });
+
+    // Initial load
+    loadMessages();
+});
+</script>
+
+<style>
+.chat-monitoring-card {
+    height: calc(100vh - 250px);
+    margin-bottom: 0;
+}
+
+.chat-monitoring-messages {
+    height: calc(100% - 120px);
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.monitoring-message {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: #fff;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.monitoring-message:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.message-content {
+    margin: 0.75rem 0;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+}
+
+.message-text {
+    white-space: pre-wrap;
+}
+
+.message-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.75rem;
+}
+
+.user-email {
+    font-weight: 600;
+    color: var(--bs-primary);
+}
+
+.timestamp {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.message-type {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chat-monitoring-card {
+        height: calc(100vh - 200px);
+    }
+    
+    .message-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .timestamp {
+        width: 100%;
+    }
+}
+</style>
 {% endblock %}

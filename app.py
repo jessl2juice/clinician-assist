@@ -1,9 +1,12 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, redirect, url_for, session, request, jsonify, send_from_directory
 from flask_login import current_user, login_required
-from flask_socketio import SocketIO, emit
+from flask_socketio import emit
 from datetime import datetime, timedelta
 from config import Config
-from extensions import db, login_manager, session as flask_session
+from extensions import db, login_manager, session as flask_session, socketio
 from models import User, ChatMessage
 from auth import auth
 from admin import admin
@@ -20,7 +23,7 @@ Config.init_db(app)
 db.init_app(app)
 login_manager.init_app(app)
 flask_session.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
 chat_service = ChatService()
 
 login_manager.login_view = 'auth.login'
@@ -48,7 +51,8 @@ def index():
 @login_required
 def dashboard():
     if current_user.role == 'admin':
-        return render_template('dashboard/admin.html')
+        users = User.query.all()
+        return render_template('dashboard/admin.html', users=users)
     else:
         chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp.desc()).all()
         messages = [{
@@ -100,7 +104,14 @@ def handle_voice_message():
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
+    static_dir = app.static_folder or 'static'
+    return send_from_directory(static_dir, filename)
+
+@socketio.on('connect')
+def handle_connect():
+    if not current_user.is_authenticated:
+        return False
+    return True
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -109,7 +120,9 @@ def handle_message(data):
     
     try:
         # Save user message
-        user_message = ChatMessage(user_id=current_user.id, is_ai_response=False)
+        user_message = ChatMessage()
+        user_message.user_id = current_user.id
+        user_message.is_ai_response = False
         user_message.content = data['message']
         db.session.add(user_message)
         db.session.commit()
@@ -145,6 +158,7 @@ if __name__ == '__main__':
     socketio.run(app, 
         host='0.0.0.0',
         port=5000,
-        allow_unsafe_werkzeug=True,
-        debug=True
+        debug=True,
+        use_reloader=True,
+        log_output=True
     )

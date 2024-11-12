@@ -21,4 +21,9 @@ dependencies = [
     "python-socketio",
     "werkzeug",
     "python-dotenv",
+    "eventlet>=0.37.0",
+    "python-engineio",
+    "simple-websocket>=1.1.0",
+    "numpy",
+    "pandas",
 ]
