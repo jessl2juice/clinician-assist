@@ -68,7 +68,7 @@
                                 <span class="dot"></span>
                             </div>
                             <div class="chat-messages" id="chat-messages">
-                                {% for message in messages %}
+                                {% for message in messages|reverse %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %}">
                                     <div class="message-content">{{ message.content }}</div>
                                     <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
@@ -95,11 +95,6 @@
         const messageInput = document.getElementById('message-input');
         const typingIndicator = document.getElementById('typing-indicator');
 
-        // Auto-scroll to bottom
-        function scrollToBottom() {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
         // Format timestamp
         function formatTimestamp(timestamp) {
             const date = new Date(timestamp);
@@ -116,8 +111,7 @@
                 <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
             `;
             
-            chatMessages.appendChild(messageDiv);
-            scrollToBottom();
+            chatMessages.insertBefore(messageDiv, chatMessages.firstChild);
         }
 
         // Handle form submission
@@ -137,11 +131,7 @@
 
         socket.on('typing_indicator', function(data) {
             typingIndicator.style.display = data.typing ? 'block' : 'none';
-            scrollToBottom();
         });
-
-        // Initial scroll to bottom
-        scrollToBottom();
     });
 </script>
 {% endblock %}

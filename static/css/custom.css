@@ -54,7 +54,21 @@
     overflow: hidden;
 }
 
-/* Client Dashboard specific styling */
+/* Logo styling */
+.logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 0.5rem; /* Updated spacing */
+}
+
+/* Card specific logo */
+.dashboard-logo {
+    width: 100px; /* Reduced from 150px */
+    margin: 0.5rem auto; /* Adjusted margin */
+}
+
+/* Welcome title */
 .welcome-title {
     font-size: 2.5rem;
     font-weight: 700;
@@ -287,11 +301,22 @@ h2, .h2 {
 
 /* Chat interface styling */
 .chat-card {
-    height: calc(100vh - 120px); /* Adjusted chat window size */
+    height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
     margin-bottom: 0;
     overflow: hidden;
+}
+
+.chat-input-form {
+    position: sticky;
+    top: 0;
+    padding: 1rem;
+    background: white;
+    border-bottom: 1px solid var(--bs-border-color);
+    z-index: 100;
+    margin-bottom: 0.5rem;
+    width: 100%;
 }
 
 .chat-messages {
@@ -299,12 +324,13 @@ h2, .h2 {
     overflow-y: auto;
     padding: 1rem;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     gap: 1rem;
     height: 100%;
-    max-height: calc(100vh - 220px); /* Adjusted max height */
+    max-height: calc(100vh - 220px);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    margin-top: 0.5rem;
 }
 
 .message {
@@ -337,21 +363,14 @@ h2, .h2 {
     text-align: right;
 }
 
-.chat-input-form {
+.typing-indicator {
     position: sticky;
     top: 0;
-    padding: 1rem;
-    background: white;
-    border-bottom: 1px solid var(--bs-border-color);
-    z-index: 100;
-    width: 100%;
-}
-
-.typing-indicator {
     padding: 0.5rem 1rem;
     background: white;
     border-bottom: 1px solid var(--bs-border-color);
     z-index: 99;
+    margin-top: -0.5rem;
 }
 
 .typing-indicator .dot {
