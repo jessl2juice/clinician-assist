@@ -66,7 +66,7 @@
                                 <span class="dot"></span>
                                 <span class="dot"></span>
                             </div>
-                            <div class="chat-messages custom-scrollbar" id="chat-messages">
+                            <div class="chat-messages custom-scrollbar" id="chat-messages" style="overflow-y: auto !important; max-height: calc(100vh - 400px);">
                                 {% for message in messages %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
                                     <div class="message-content">{{ message.content }}</div>
@@ -407,16 +407,17 @@ document.addEventListener('DOMContentLoaded', function() {
     position: sticky;
     bottom: 0;
     background: white;
-    z-index: 100;
     padding: 1rem;
     border-top: 1px solid var(--bs-border-color);
+    margin-top: auto;
+    z-index: 100;
 }
 
 /* Typing indicator */
 .typing-indicator {
     position: sticky;
     top: 0;
-    padding: 0.5rem;
+    padding: 0.5rem 1rem;
     background: white;
     z-index: 99;
     text-align: center;
@@ -429,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
     margin: 0 2px;
     background-color: var(--bs-secondary);
     border-radius: 50%;
-    animation: typing 1s infinite;
+    animation: typingBounce 1s infinite;
 }
 
 .typing-indicator .dot:nth-child(2) {
@@ -440,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
     animation-delay: 0.4s;
 }
 
-@keyframes typing {
+@keyframes typingBounce {
     0%, 60%, 100% { transform: translateY(0); }
     30% { transform: translateY(-4px); }
 }
@@ -482,19 +483,6 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-top: 0.5rem;
     display: flex;
     justify-content: flex-end;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .chat-card,
-    .chat-monitoring-card {
-        height: calc(100vh - 300px);
-    }
-    
-    .chat-messages,
-    .chat-monitoring-messages {
-        height: calc(100vh - 500px);
-    }
 }
 </style>
 {% endblock %}
