@@ -51,28 +51,30 @@
 
                         <!-- Text Chat Tab -->
                         <div class="tab-pane fade" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
-                            <div class="chat-messages" id="chat-messages">
-                                {% for message in messages %}
-                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
-                                    <div class="message-content">{{ message.content }}</div>
-                                    <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            <div class="typing-indicator" id="typing-indicator" style="display: none;">
-                                <span class="dot"></span>
-                                <span class="dot"></span>
-                                <span class="dot"></span>
-                            </div>
-                            <div class="chat-input-form">
-                                <form id="chat-form" class="chat-form">
-                                    <div class="input-group">
-                                        <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-send"></i>
-                                        </button>
+                            <div class="text-chat-container">
+                                <div class="chat-messages custom-scrollbar" id="chat-messages">
+                                    {% for message in messages %}
+                                    <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
+                                        <div class="message-content">{{ message.content }}</div>
+                                        <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
                                     </div>
-                                </form>
+                                    {% endfor %}
+                                </div>
+                                <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                </div>
+                                <div class="chat-input-form">
+                                    <form id="chat-form" class="chat-form">
+                                        <div class="input-group">
+                                            <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-send"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -117,7 +119,7 @@
                     </div>
 
                     <!-- Chat Messages -->
-                    <div class="chat-monitoring-messages" id="monitoringMessages">
+                    <div class="chat-monitoring-messages custom-scrollbar" id="monitoringMessages">
                         <!-- Messages will be loaded here dynamically -->
                     </div>
                 </div>
@@ -160,7 +162,6 @@
 <!-- Chat and monitoring scripts -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Socket.IO connection with error handling and reconnection logic
     const socket = io({
         reconnection: true,
         reconnectionAttempts: 5,
@@ -169,31 +170,15 @@ document.addEventListener('DOMContentLoaded', function() {
         timeout: 20000
     });
     
-    // Chat interface elements
     const chatMessages = document.getElementById('chat-messages');
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
     const typingIndicator = document.getElementById('typing-indicator');
-    
-    // Monitoring elements
     const monitoringMessages = document.getElementById('monitoringMessages');
     const userFilter = document.getElementById('userFilter');
     const messageTypeFilter = document.getElementById('messageTypeFilter');
     const flaggedFilter = document.getElementById('flaggedFilter');
     const refreshButton = document.getElementById('refreshChat');
-
-    // Connection status handling
-    socket.on('connect', () => {
-        console.log('Connected to server');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-    });
-
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
 
     // Format timestamp
     function formatTimestamp(timestamp) {
@@ -201,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return date.toLocaleString();
     }
 
-    // Add new message to chat
+    // Add new message to chat with smooth scrolling
     function addMessage(content, timestamp, isAI) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
@@ -211,39 +196,13 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv); // Changed to appendChild to maintain chronological order
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to latest message
+        chatMessages.appendChild(messageDiv);
+        
+        // Smooth scroll to the latest message
+        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
 
-    // Add new message to monitoring view
-    function addMonitoringMessage(message) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'monitoring-message';
-        messageDiv.dataset.messageId = message.id;
-        
-        let content = message.message_type === 'voice' 
-            ? `<audio controls src="${message.voice_url}" class="w-100"></audio>`
-            : `<div class="message-text">${message.content}</div>`;
-
-        messageDiv.innerHTML = `
-            <div class="message-header">
-                <span class="user-email">${message.user_email}</span>
-                <span class="message-type badge bg-info">${message.message_type}</span>
-                <span class="timestamp">${formatTimestamp(message.timestamp)}</span>
-                ${message.flagged ? '<span class="badge bg-warning ms-2">Flagged</span>' : ''}
-            </div>
-            <div class="message-content">${content}</div>
-            <div class="message-footer">
-                <button class="btn btn-sm btn-primary view-details" data-message-id="${message.id}">
-                    <i class="bi bi-eye"></i> View Details
-                </button>
-            </div>
-        `;
-        
-        monitoringMessages.insertBefore(messageDiv, monitoringMessages.firstChild);
-    }
-
-    // Handle chat form submission
+    // Handle chat form submission with preventDefault
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = messageInput.value.trim();
@@ -272,6 +231,18 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshButton.addEventListener('click', loadMessages);
 
     // Socket event handlers for chat
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
+    });
+
     socket.on('new_message', function(data) {
         addMessage(data.content, data.timestamp, data.is_ai_response);
     });
@@ -349,116 +320,100 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.chat-card {
-    height: calc(100vh - 250px);
-    margin-bottom: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-card .card-body {
+/* Chat container styles */
+.text-chat-container {
     display: flex;
     flex-direction: column;
     height: 100%;
+    position: relative;
+    overflow: hidden;
 }
 
-.tab-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
 }
 
-.tab-pane {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
 }
 
-#text-chat {
-    display: flex;
-    flex-direction: column;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
 }
 
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Chat messages container */
 .chat-messages {
-    flex: 1;
+    flex-grow: 1;
     overflow-y: auto;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
-    padding: 1rem;
     gap: 1rem;
-    margin-bottom: 1rem;
+    scroll-behavior: smooth;
 }
 
+/* Message animations */
+.message {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: messageSlideIn 0.3s ease forwards;
+}
+
+@keyframes messageSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Fixed input form */
 .chat-input-form {
     position: sticky;
     bottom: 0;
     background: white;
     padding: 1rem;
     border-top: 1px solid var(--bs-border-color);
+    z-index: 100;
     margin-top: auto;
+    transition: transform 0.3s ease;
+}
+
+/* Typing indicator */
+.typing-indicator {
+    position: sticky;
+    bottom: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.5rem;
+    text-align: center;
+    z-index: 99;
+    transition: opacity 0.3s ease;
+}
+
+/* Card heights */
+.chat-card {
+    height: calc(100vh - 250px);
+    display: flex;
+    flex-direction: column;
 }
 
 .chat-monitoring-card {
     height: calc(100vh - 250px);
-    margin-bottom: 0;
+    overflow: hidden;
 }
 
-.chat-monitoring-messages {
-    height: calc(100% - 180px);
-    overflow-y: auto;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.monitoring-message {
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    background-color: #fff;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.monitoring-message:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.message-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
-}
-
-.message-content {
-    margin: 0.75rem 0;
-    padding: 0.5rem;
-    background-color: #f8f9fa;
-    border-radius: 0.25rem;
-}
-
-.message-text {
-    white-space: pre-wrap;
-}
-
-.message-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-.typing-indicator {
-    padding: 0.5rem;
-    text-align: center;
-    position: sticky;
-    bottom: 100%;
-    background: rgba(255, 255, 255, 0.9);
-    z-index: 1;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chat-card,
+    .chat-monitoring-card {
+        height: calc(100vh - 300px);
+    }
 }
 </style>
 {% endblock %}
