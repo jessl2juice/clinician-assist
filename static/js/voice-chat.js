@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
                 if (audioBlob.size < 1000) {
-                    console.error('Audio data too small');
+                    console.error('Audio data too small', { size: audioBlob.size });
                     recordButtonText.textContent = 'Recording too quiet. Please speak closer to the microphone.';
                     setTimeout(() => {
                         recordButtonText.textContent = 'Press and Hold to Speak';
@@ -68,7 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Setup recording error:', {
                 name: err.name,
                 message: err.message,
-                stack: err.stack
+                stack: err.stack,
+                timestamp: new Date().toISOString()
             });
             handleRecordingError(err);
             return false;
@@ -79,7 +80,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Recording error:', {
             name: error.name,
             message: error.message,
-            stack: error.stack
+            stack: error.stack,
+            timestamp: new Date().toISOString()
         });
         
         let userMessage = 'An error occurred while recording';
@@ -123,7 +125,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Start recording error:', {
                 name: err.name,
                 message: err.message,
-                stack: err.stack
+                stack: err.stack,
+                timestamp: new Date().toISOString()
             });
             handleRecordingError(err);
         }
@@ -140,7 +143,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Stop recording error:', {
                 name: err.name,
                 message: err.message,
-                stack: err.stack
+                stack: err.stack,
+                timestamp: new Date().toISOString()
             });
             handleRecordingError(err);
         }
@@ -169,7 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error parsing response:', {
                     responseText,
                     error: e.message,
-                    stack: e.stack
+                    stack: e.stack,
+                    timestamp: new Date().toISOString()
                 });
                 throw new Error(`Invalid server response: ${responseText}`);
             }
@@ -192,7 +197,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: error.name,
                 message: error.message,
                 stack: error.stack,
-                retryCount: retryCount
+                retryCount: retryCount,
+                timestamp: new Date().toISOString()
             });
 
             if (retryCount < MAX_RETRIES) {
@@ -202,7 +208,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return sendVoiceMessage(audioBlob);
             }
 
-            recordButtonText.textContent = 'Error sending message. Please try again.';
+            let errorMessage = 'Error sending message. Please try again.';
+            if (error.message.includes('Invalid server response')) {
+                errorMessage = 'Server communication error. Please try again.';
+            } else if (error.message.includes('NetworkError')) {
+                errorMessage = 'Network connection error. Please check your internet connection.';
+            }
+            
+            recordButtonText.textContent = errorMessage;
         } finally {
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
@@ -213,8 +226,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function stopAllAudio() {
         audioElements.forEach(audio => {
             if (audio && typeof audio.pause === 'function') {
-                audio.pause();
-                audio.currentTime = 0;
+                try {
+                    audio.pause();
+                    audio.currentTime = 0;
+                } catch (err) {
+                    console.error('Error stopping audio:', {
+                        name: err.name,
+                        message: err.message,
+                        stack: err.stack
+                    });
+                }
             }
         });
         audioElements.clear();
@@ -236,9 +257,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         audio.addEventListener('error', (err) => {
             console.error('Audio playback error:', {
-                name: err.type,
-                message: err.message,
-                stack: err.error?.stack
+                type: err.type,
+                message: audio.error?.message || 'Unknown error',
+                code: audio.error?.code,
+                timestamp: new Date().toISOString()
             });
             audioElements.delete(messageId);
         });
@@ -250,7 +272,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error playing audio:', {
                     name: err.name,
                     message: err.message,
-                    stack: err.stack
+                    stack: err.stack,
+                    timestamp: new Date().toISOString()
                 });
             });
         }, { once: true });

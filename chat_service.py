@@ -7,6 +7,7 @@ import traceback
 from datetime import datetime
 import io
 import uuid
+import json
 
 class ChatService:
     def __init__(self):
@@ -17,6 +18,7 @@ class ChatService:
         
     def get_ai_response(self, user_message, user):
         try:
+            start_time = datetime.utcnow()
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -25,6 +27,9 @@ class ChatService:
                 ],
                 max_tokens=150
             )
+            
+            processing_time = (datetime.utcnow() - start_time).total_seconds()
+            current_app.logger.info(f"AI response generated in {processing_time:.2f} seconds")
             
             ai_message = response.choices[0].message.content
             
@@ -39,12 +44,24 @@ class ChatService:
             return ai_message
             
         except openai.APIError as e:
-            error_msg = f"OpenAI API Error: {str(e)}\nType: {type(e).__name__}\nDetails: {getattr(e, 'response', None)}"
-            current_app.logger.error(error_msg)
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'response_details': getattr(e, 'response', None),
+                'user_id': user.id,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            current_app.logger.error(f"OpenAI API Error: {json.dumps(error_context)}")
             return None
         except Exception as e:
-            error_msg = f"Error getting AI response: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
-            current_app.logger.error(error_msg)
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': traceback.format_exc(),
+                'user_id': user.id,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            current_app.logger.error(f"Error getting AI response: {json.dumps(error_context)}")
             return None
 
     def generate_audio_response(self, text):
@@ -52,12 +69,17 @@ class ChatService:
             if not text:
                 raise ValueError("No text provided for audio generation")
 
+            start_time = datetime.utcnow()
             current_app.logger.info("Generating audio response")
+            
             response = self.client.audio.speech.create(
                 model="tts-1",
                 voice="alloy",
                 input=text
             )
+            
+            processing_time = (datetime.utcnow() - start_time).total_seconds()
+            current_app.logger.info(f"Audio generated in {processing_time:.2f} seconds")
             
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             unique_id = str(uuid.uuid4())[:8]
@@ -73,26 +95,47 @@ class ChatService:
                 response.stream_to_file(audio_path)
                 if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
                     raise ValueError("Failed to generate audio file")
+                
+                file_size = os.path.getsize(audio_path)
+                current_app.logger.info(f"Audio file generated: {filename} ({file_size} bytes)")
+                
             except Exception as e:
-                error_msg = f"Error streaming audio to file: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
-                current_app.logger.error(error_msg)
+                error_context = {
+                    'error_type': type(e).__name__,
+                    'error_message': str(e),
+                    'traceback': traceback.format_exc(),
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                current_app.logger.error(f"Error streaming audio to file: {json.dumps(error_context)}")
                 if os.path.exists(audio_path):
                     os.remove(audio_path)
                 return None
             
-            current_app.logger.info(f"Audio response generated successfully: {filename}")
             return f'/static/voice_messages/{filename}'
                 
         except Exception as e:
-            error_msg = f"Error generating audio response: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
-            current_app.logger.error(error_msg)
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': traceback.format_exc(),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            current_app.logger.error(f"Error generating audio response: {json.dumps(error_context)}")
             return None
             
     def process_voice_message(self, audio_file, user):
         temp_file = None
+        start_time = datetime.utcnow()
+        
         try:
-            current_app.logger.info(f"Processing voice message for user: {user.id}")
-            current_app.logger.info(f"Request context: Method={request.method}, Path={request.path}, IP={request.remote_addr}")
+            request_context = {
+                'method': request.method,
+                'path': request.path,
+                'ip': request.remote_addr,
+                'user_id': user.id,
+                'content_type': audio_file.content_type if audio_file else None
+            }
+            current_app.logger.info(f"Processing voice message: {json.dumps(request_context)}")
             
             if not audio_file or not audio_file.content_type:
                 raise ValueError("Invalid audio file")
@@ -108,7 +151,7 @@ class ChatService:
             if len(audio_bytes) < 100:  # Basic size check
                 raise ValueError("Audio file too small, please record a longer message")
                 
-            current_app.logger.info(f"Audio file read, size: {len(audio_bytes)} bytes")
+            current_app.logger.info(f"Audio file received: {len(audio_bytes)} bytes")
             
             # Create a temporary file with unique name
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
@@ -122,7 +165,6 @@ class ChatService:
             # Save audio bytes to temporary file
             with open(temp_file, 'wb') as f:
                 f.write(audio_bytes)
-            current_app.logger.info(f"Temporary file created: {temp_file}")
             
             # Process speech to text using the temporary file
             try:
@@ -133,8 +175,14 @@ class ChatService:
                         response_format="text"
                     )
             except openai.APIError as e:
-                error_msg = f"OpenAI API Error during transcription: {str(e)}\nType: {type(e).__name__}\nDetails: {getattr(e, 'response', None)}"
-                current_app.logger.error(error_msg)
+                error_context = {
+                    'error_type': type(e).__name__,
+                    'error_message': str(e),
+                    'response_details': getattr(e, 'response', None),
+                    'user_id': user.id,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                current_app.logger.error(f"OpenAI API Error during transcription: {json.dumps(error_context)}")
                 raise ValueError("Failed to transcribe audio: OpenAI API error")
             
             if not transcript:
@@ -151,18 +199,19 @@ class ChatService:
             db.session.commit()
             
             # Get AI response
-            current_app.logger.info("Getting AI response")
             ai_response = self.get_ai_response(transcript, user)
             
             if not ai_response:
-                raise ValueError("Failed to get AI response: OpenAI API error")
+                raise ValueError("Failed to get AI response")
             
             # Generate audio response
-            current_app.logger.info("Generating audio response")
             audio_url = self.generate_audio_response(ai_response)
             
             if not audio_url:
                 raise ValueError("Failed to generate audio response")
+            
+            processing_time = (datetime.utcnow() - start_time).total_seconds()
+            current_app.logger.info(f"Voice message processed in {processing_time:.2f} seconds")
             
             return {
                 'success': True,
@@ -172,8 +221,14 @@ class ChatService:
             }
                 
         except ValueError as e:
-            error_msg = f"Validation error: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
-            current_app.logger.error(error_msg)
+            error_context = {
+                'error_type': 'ValueError',
+                'error_message': str(e),
+                'traceback': traceback.format_exc(),
+                'user_id': user.id,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            current_app.logger.error(f"Validation error: {json.dumps(error_context)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -182,13 +237,14 @@ class ChatService:
             error_context = {
                 'error_type': type(e).__name__,
                 'error_message': str(e),
-                'user_id': getattr(user, 'id', None),
+                'traceback': traceback.format_exc(),
+                'user_id': user.id,
                 'request_method': request.method,
                 'request_path': request.path,
-                'remote_addr': request.remote_addr
+                'remote_addr': request.remote_addr,
+                'timestamp': datetime.utcnow().isoformat()
             }
-            error_msg = f"Error processing voice message:\nContext: {error_context}\nTraceback: {traceback.format_exc()}"
-            current_app.logger.error(error_msg)
+            current_app.logger.error(f"Error processing voice message: {json.dumps(error_context)}")
             return {
                 'success': False,
                 'error': f"Error processing voice message: {type(e).__name__} - {str(e)}"
@@ -200,4 +256,10 @@ class ChatService:
                     os.unlink(temp_file)
                     current_app.logger.info(f"Temporary file deleted: {temp_file}")
             except Exception as e:
-                current_app.logger.error(f"Error cleaning up temporary file: {str(e)}")
+                error_context = {
+                    'error_type': type(e).__name__,
+                    'error_message': str(e),
+                    'file_path': temp_file,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                current_app.logger.error(f"Error cleaning up temporary file: {json.dumps(error_context)}")
