@@ -3,9 +3,6 @@
 {% block content %}
 <div class="container">
     <div class="text-center mb-4">
-        <div class="logo-container">
-            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="ca-logo dashboard-logo">
-        </div>
         <h1 class="welcome-title">Casey</h1>
         <p class="dashboard-tagline">Your Therapist's Assistant</p>
     </div>
@@ -112,7 +109,8 @@
                 <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
             `;
             
-            chatMessages.insertAdjacentElement('afterbegin', messageDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
         // Handle form submission
