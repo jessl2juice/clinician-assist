@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let audioChunks = [];
     let recordingTimer;
     let startTime;
-    let audioElements = new Map(); // Store audio elements for playback control
+    let audioElements = new Map();
     let retryCount = 0;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
@@ -31,25 +31,36 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             mediaRecorder.onstop = async () => {
+                const duration = (Date.now() - startTime) / 1000;
+                if (duration < 0.5) {
+                    recordButtonText.textContent = 'Message too short. Hold longer to speak.';
+                    setTimeout(() => {
+                        recordButtonText.textContent = 'Press and Hold to Speak';
+                    }, 2000);
+                    return;
+                }
+
                 if (audioChunks.length === 0) {
-                    const error = new Error('No audio data recorded');
-                    handleRecordingError(error);
+                    console.error('No audio data recorded');
                     return;
                 }
 
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
-                if (audioBlob.size === 0) {
-                    const error = new Error('Empty audio blob created');
-                    handleRecordingError(error);
+                if (audioBlob.size < 1000) {
+                    console.error('Audio data too small');
                     return;
                 }
 
                 await sendVoiceMessage(audioBlob);
-                audioChunks = [];
             };
             
             return true;
         } catch (err) {
+            console.error('Setup recording error:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             handleRecordingError(err);
             return false;
         }
@@ -59,8 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Recording error:', {
             name: error.name,
             message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
+            stack: error.stack
         });
         
         let userMessage = 'An error occurred while recording';
@@ -84,6 +94,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function startRecording() {
+        if (mediaRecorder?.state === 'recording') return;
+        
         if (!mediaRecorder) {
             const setup = await setupRecording();
             if (!setup) return;
@@ -97,24 +109,25 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButtonText.textContent = 'Recording...';
             recordingTimer = setInterval(updateRecordingTime, 1000);
         } catch (err) {
+            console.error('Start recording error:', err);
             handleRecordingError(err);
         }
     }
     
     function stopRecording() {
         try {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
+            if (mediaRecorder?.state === 'recording') {
                 clearInterval(recordingTimer);
                 recordButton.classList.remove('recording');
-                recordButtonText.textContent = 'Processing...';
                 mediaRecorder.stop();
             }
         } catch (err) {
+            console.error('Stop recording error:', err);
             handleRecordingError(err);
         }
     }
     
-    async function sendVoiceMessage(audioBlob, isRetry = false) {
+    async function sendVoiceMessage(audioBlob) {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'voice_message.webm');
         
@@ -125,16 +138,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
             
-            let data;
             const responseText = await response.text();
+            let data;
             
             try {
                 data = JSON.parse(responseText);
             } catch (e) {
                 console.error('Error parsing response:', {
                     responseText,
-                    error: e.message,
-                    timestamp: new Date().toISOString()
+                    error: e.message
                 });
                 throw new Error('Invalid server response');
             }
@@ -146,9 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 retryCount = 0;
                 if (data.ai_audio_url) {
-                    addVoiceMessage(data.ai_audio_url, true);
+                    addVoiceMessage(data.ai_audio_url);
                 }
-                recordButtonText.textContent = 'Press and Hold to Speak';
             } else {
                 throw new Error(data.error || 'Unknown error occurred');
             }
@@ -156,76 +167,57 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error sending voice message:', {
                 name: error.name,
                 message: error.message,
-                stack: error.stack,
-                retry: isRetry,
-                retryCount,
-                timestamp: new Date().toISOString()
+                stack: error.stack
             });
 
-            if (!isRetry && retryCount < MAX_RETRIES) {
+            if (retryCount < MAX_RETRIES) {
                 retryCount++;
                 recordButtonText.textContent = `Retrying... (${retryCount}/${MAX_RETRIES})`;
                 await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-                return sendVoiceMessage(audioBlob, true);
+                return sendVoiceMessage(audioBlob);
             }
 
-            let userMessage = 'Error processing voice message. Please try again.';
-            if (error.message.includes('OpenAI API')) {
-                userMessage = 'AI service temporarily unavailable. Please try again later.';
-            } else if (error.message.includes('audio format')) {
-                userMessage = 'Unsupported audio format. Please try again.';
-            }
-
-            recordButtonText.textContent = userMessage;
+            recordButtonText.textContent = 'Error sending message. Please try again.';
+        } finally {
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
-                retryCount = 0;
             }, 3000);
         }
     }
     
     function stopAllAudio() {
-        audioElements.forEach((audio) => {
+        audioElements.forEach(audio => {
             audio.pause();
             audio.currentTime = 0;
         });
+        audioElements.clear();
     }
     
-    function addVoiceMessage(audioUrl, isAI) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
+    function addVoiceMessage(audioUrl) {
+        if (!audioUrl) return;
         
-        // Create hidden audio element
-        if (audioUrl) {
-            const audio = new Audio(audioUrl);
-            const messageId = `message-${Date.now()}`;
-            audioElements.set(messageId, audio);
-            
-            audio.addEventListener('ended', () => {
-                audioElements.delete(messageId);
+        const audio = new Audio(audioUrl);
+        const messageId = Date.now().toString();
+        audioElements.set(messageId, audio);
+        
+        audio.addEventListener('ended', () => {
+            audioElements.delete(messageId);
+        });
+        
+        // Auto-play AI responses
+        audio.addEventListener('canplaythrough', () => {
+            stopAllAudio();
+            audio.play().catch(err => {
+                console.error('Error playing audio:', {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack
+                });
             });
-            
-            // Auto-play AI responses
-            if (isAI) {
-                audio.addEventListener('canplaythrough', () => {
-                    stopAllAudio();
-                    audio.play().catch(err => {
-                        console.error('Error auto-playing audio:', {
-                            name: err.name,
-                            message: err.message,
-                            stack: err.stack,
-                            timestamp: new Date().toISOString()
-                        });
-                    });
-                }, { once: true });
-            }
-        }
-        
-        voiceMessages.appendChild(messageDiv);
-        voiceMessages.scrollTop = voiceMessages.scrollHeight;
+        }, { once: true });
     }
     
-    // Setup event listeners for push-to-talk
+    // Setup event listeners
     recordButton.addEventListener('mousedown', startRecording);
     recordButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
