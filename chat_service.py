@@ -22,16 +22,29 @@ class ChatService:
                 model="gpt-4",
                 messages=[{
                     "role": "system",
-                    "content": "You are a sentiment analysis expert. Analyze the following text and provide a JSON response with: sentiment_score (float between -1 and 1), sentiment_label (Positive, Negative, or Neutral), and a brief sentiment_analysis explanation."
+                    "content": """You are a sentiment analysis expert. Analyze the following text and provide the sentiment analysis in this exact format:
+{
+    "sentiment_score": <float between -1 and 1>,
+    "sentiment_label": "<Positive, Negative, or Neutral>",
+    "sentiment_analysis": "<brief explanation>"
+}"""
                 }, {
                     "role": "user",
                     "content": text
-                }],
-                response_format={"type": "json_object"}
+                }]
             )
             
-            result = json.loads(response.choices[0].message.content)
-            return result
+            try:
+                result = json.loads(response.choices[0].message.content)
+                return result
+            except json.JSONDecodeError:
+                # Fallback parsing if the response is not proper JSON
+                content = response.choices[0].message.content
+                return {
+                    "sentiment_score": 0,
+                    "sentiment_label": "Neutral",
+                    "sentiment_analysis": content
+                }
             
         except Exception as e:
             error_context = {
@@ -47,7 +60,7 @@ class ChatService:
         try:
             start_time = datetime.utcnow()
             response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a helpful therapist assistant. Provide supportive and professional responses while maintaining HIPAA compliance. Do not store or repeat sensitive personal information."},
                     {"role": "user", "content": user_message}
