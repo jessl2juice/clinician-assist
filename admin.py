@@ -8,8 +8,10 @@ from functools import wraps
 from forms import EditUserForm
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
+from chat_service import ChatService
 
 admin = Blueprint('admin', __name__)
+chat_service = ChatService()
 
 def admin_required(f):
     @wraps(f)
@@ -89,8 +91,101 @@ def system_status():
 @admin_required
 def admin_dashboard():
     users = User.query.all()
-    return render_template('dashboard/admin.html', users=users)
+    chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp.desc()).all()
+    messages = [{
+        'content': msg.content,
+        'timestamp': msg.timestamp,
+        'is_ai_response': msg.is_ai_response,
+        'message_type': msg.message_type,
+        'voice_url': msg.voice_url
+    } for msg in chat_messages]
+    return render_template('dashboard/admin.html', users=users, messages=messages)
 
+@admin.route('/voice-message', methods=['POST'])
+@login_required
+@admin_required
+def handle_voice_message():
+    if 'audio' not in request.files:
+        return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+    
+    audio_file = request.files['audio']
+    if not audio_file or not audio_file.filename:
+        return jsonify({'success': False, 'error': 'Empty audio file'}), 400
+    
+    # Process the voice message
+    result = chat_service.process_voice_message(audio_file, current_user)
+    
+    if result and result.get('success', False):
+        # Emit the message to monitoring
+        emit('new_monitored_message', {
+            'id': result.get('message_id'),
+            'content': result.get('transcript'),
+            'user_email': current_user.email,
+            'timestamp': datetime.utcnow().isoformat(),
+            'message_type': 'voice',
+            'voice_url': result.get('ai_audio_url'),
+            'flagged': False,
+            'monitor_notes': ''
+        }, broadcast=True)
+        
+        return jsonify({
+            'success': True,
+            'transcript': result.get('transcript'),
+            'ai_response': result.get('ai_response'),
+            'ai_audio_url': result.get('ai_audio_url')
+        })
+    
+    return jsonify({
+        'success': False,
+        'error': result.get('error', 'Failed to process voice message')
+    }), 500
+
+# Socket.IO event handlers for admin chat
+@socketio.on('admin_send_message')
+@login_required
+def handle_admin_message(data):
+    if current_user.role != 'admin':
+        return
+
+    # Save admin message
+    message = ChatMessage()
+    message.user_id = current_user.id
+    message.content = data['message']
+    message.is_ai_response = False
+    message.message_type = 'text'
+    db.session.add(message)
+    db.session.commit()
+
+    # Emit the message
+    emit('new_message', {
+        'content': message.content,
+        'timestamp': message.timestamp.isoformat(),
+        'is_ai_response': False,
+        'message_type': 'text'
+    })
+
+    # Get and emit AI response
+    emit('typing_indicator', {'typing': True})
+    ai_response = chat_service.get_ai_response(data['message'], current_user)
+    emit('typing_indicator', {'typing': False})
+
+    if ai_response:
+        ai_message = ChatMessage()
+        ai_message.user_id = current_user.id
+        ai_message.content = ai_response
+        ai_message.is_ai_response = True
+        ai_message.message_type = 'text'
+        db.session.add(ai_message)
+        db.session.commit()
+
+        emit('new_message', {
+            'content': ai_response,
+            'timestamp': datetime.utcnow().isoformat(),
+            'is_ai_response': True,
+            'message_type': 'text'
+        })
+
+# Socket.IO event handlers for monitoring
 @socketio.on('admin_get_messages')
 @login_required
 def handle_get_messages(data):
@@ -172,6 +267,7 @@ def handle_save_notes(data):
             'monitor_notes': message.monitor_notes
         })
 
+# User management routes
 @admin.route('/users/<int:user_id>/toggle_active', methods=['POST'])
 @login_required
 @admin_required
