@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const recordButton = document.getElementById('recordButton');
     const recordButtonText = document.querySelector('.record-text');
+    const voiceMessages = document.getElementById('voice-messages');
     let mediaRecorder;
     let audioChunks = [];
     let recordingTimer;
@@ -16,7 +17,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
             
-            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm'
+            });
             
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -25,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks);
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 await sendVoiceMessage(audioBlob);
                 audioChunks = [];
             };
@@ -51,19 +54,35 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!setup) return;
         }
         
-        mediaRecorder.start(100);
-        startTime = Date.now();
-        recordButton.classList.add('recording');
-        recordButtonText.textContent = 'Recording...';
-        recordingTimer = setInterval(updateRecordingTime, 1000);
+        try {
+            mediaRecorder.start(100);
+            startTime = Date.now();
+            recordButton.classList.add('recording');
+            recordButtonText.textContent = 'Recording...';
+            recordingTimer = setInterval(updateRecordingTime, 1000);
+        } catch (err) {
+            console.error('Error starting recording:', err);
+            recordButtonText.textContent = 'Error starting recording';
+            setTimeout(() => {
+                recordButtonText.textContent = 'Press and Hold to Speak';
+            }, 3000);
+        }
     }
     
     function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            clearInterval(recordingTimer);
-            recordButton.classList.remove('recording');
-            recordButtonText.textContent = 'Processing...';
+        try {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                clearInterval(recordingTimer);
+                recordButton.classList.remove('recording');
+                recordButtonText.textContent = 'Processing...';
+            }
+        } catch (err) {
+            console.error('Error stopping recording:', err);
+            recordButtonText.textContent = 'Error stopping recording';
+            setTimeout(() => {
+                recordButtonText.textContent = 'Press and Hold to Speak';
+            }, 3000);
         }
     }
     
@@ -110,7 +129,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let messageContent = '';
         
-        // Add audio player if there's an audio URL
         if (audioUrl) {
             messageContent += `
                 <div class="audio-player-wrapper">
@@ -124,7 +142,6 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
         
-        // Add transcript if available
         if (transcript) {
             messageContent += `
                 <div class="voice-transcript">
@@ -153,7 +170,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentlyPlaying = null;
                 });
                 
-                // Auto-play AI responses
                 if (isAI) {
                     audio.addEventListener('canplaythrough', () => {
                         if (!currentlyPlaying) {
@@ -170,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function sendVoiceMessage(audioBlob) {
         const formData = new FormData();
-        formData.append('audio', audioBlob);
+        formData.append('audio', audioBlob, 'voice_message.webm');
         
         try {
             const response = await fetch('/voice-message', {
@@ -178,28 +194,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
             
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
             
             if (data.success) {
-                // Add user's message
-                addVoiceMessage(null, data.transcript, false);
+                if (data.transcript) {
+                    addVoiceMessage(null, data.transcript, false);
+                }
                 
-                // Add AI's response
                 if (data.ai_audio_url) {
                     addVoiceMessage(data.ai_audio_url, data.ai_response, true);
                 }
                 
                 recordButtonText.textContent = 'Press and Hold to Speak';
             } else {
-                console.error('Error processing voice message:', data.error);
-                recordButtonText.textContent = data.error || 'Error processing message';
-                setTimeout(() => {
-                    recordButtonText.textContent = 'Press and Hold to Speak';
-                }, 3000);
+                throw new Error(data.error || 'Unknown error occurred');
             }
         } catch (error) {
             console.error('Error sending voice message:', error);
-            recordButtonText.textContent = 'Error sending message';
+            recordButtonText.textContent = error.message || 'Error sending message';
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
             }, 3000);

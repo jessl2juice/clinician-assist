@@ -6,6 +6,7 @@ from extensions import db
 import traceback
 from datetime import datetime
 import io
+import uuid
 
 class ChatService:
     def __init__(self):
@@ -48,14 +49,23 @@ class ChatService:
             )
             
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            filename = f'ai_response_{timestamp}.mp3'
+            unique_id = str(uuid.uuid4())[:8]
+            filename = f'ai_response_{timestamp}_{unique_id}.mp3'
             
             static_folder = current_app.static_folder or 'static'
             voice_messages_dir = os.path.join(static_folder, 'voice_messages')
             os.makedirs(voice_messages_dir, exist_ok=True)
             
             audio_path = os.path.join(voice_messages_dir, filename)
-            response.stream_to_file(audio_path)
+            
+            # Stream response to file with error handling
+            try:
+                response.stream_to_file(audio_path)
+            except Exception as e:
+                current_app.logger.error(f"Error streaming audio to file: {str(e)}")
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                return None
             
             current_app.logger.info(f"Audio response generated successfully: {filename}")
             return f'/static/voice_messages/{filename}'
@@ -69,13 +79,20 @@ class ChatService:
         try:
             current_app.logger.info("Processing voice message")
             
+            if not audio_file or not audio_file.content_type:
+                raise ValueError("Invalid audio file")
+            
             # Read audio file bytes
             audio_bytes = audio_file.read()
+            if not audio_bytes:
+                raise ValueError("Empty audio file")
+                
             current_app.logger.info(f"Audio file read, size: {len(audio_bytes)} bytes")
             
-            # Create a temporary file for OpenAI API
+            # Create a temporary file with unique name
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            temp_filename = f'temp_voice_{timestamp}.wav'
+            unique_id = str(uuid.uuid4())[:8]
+            temp_filename = f'temp_voice_{timestamp}_{unique_id}.webm'
             static_folder = current_app.static_folder or 'static'
             voice_messages_dir = os.path.join(static_folder, 'voice_messages')
             os.makedirs(voice_messages_dir, exist_ok=True)
@@ -90,40 +107,51 @@ class ChatService:
             with open(temp_file, 'rb') as f:
                 transcript = self.client.audio.transcriptions.create(
                     model="whisper-1",
-                    file=("audio.wav", f, "audio/wav")
+                    file=f,
+                    response_format="text"
                 )
             
-            current_app.logger.info(f"Speech to text completed: {transcript.text}")
+            if not transcript:
+                raise ValueError("Failed to transcribe audio")
+                
+            current_app.logger.info(f"Speech to text completed: {transcript}")
             
             # Save user message
             user_message = ChatMessage()
             user_message.user_id = user.id
             user_message.is_ai_response = False
-            user_message.content = transcript.text
+            user_message.content = transcript
             db.session.add(user_message)
             db.session.commit()
             
             # Get AI response
             current_app.logger.info("Getting AI response")
-            ai_response = self.get_ai_response(transcript.text, user)
+            ai_response = self.get_ai_response(transcript, user)
+            
+            if not ai_response:
+                raise ValueError("Failed to get AI response")
             
             # Generate audio response
             current_app.logger.info("Generating audio response")
             audio_url = self.generate_audio_response(ai_response)
             
             if not audio_url:
-                return {
-                    'success': False,
-                    'error': 'Failed to generate audio response'
-                }
+                raise ValueError("Failed to generate audio response")
             
             return {
                 'success': True,
-                'transcript': transcript.text,
+                'transcript': transcript,
                 'ai_response': ai_response,
                 'ai_audio_url': audio_url
             }
                 
+        except ValueError as e:
+            error_msg = str(e)
+            current_app.logger.error(f"Validation error: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
         except Exception as e:
             error_msg = f"Error processing voice message: {str(e)}\n{traceback.format_exc()}"
             current_app.logger.error(error_msg)
