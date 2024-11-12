@@ -11,7 +11,7 @@
     <div class="row">
         <!-- Left Column - Chat Interface -->
         <div class="col-md-6 mb-4 mb-md-0">
-            <div class="card chat-card h-100">
+            <div class="chat-card card h-100">
                 <div class="card-body">
                     <h5 class="card-title dashboard-subtitle">Admin Chat</h5>
                     
@@ -51,30 +51,28 @@
 
                         <!-- Text Chat Tab -->
                         <div class="tab-pane fade" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
-                            <div class="text-chat-container">
-                                <div class="chat-messages custom-scrollbar" id="chat-messages">
-                                    {% for message in messages %}
-                                    <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
-                                        <div class="message-content">{{ message.content }}</div>
-                                        <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
+                            <div class="chat-input-form">
+                                <form id="chat-form">
+                                    <div class="input-group">
+                                        <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-send"></i>
+                                        </button>
                                     </div>
-                                    {% endfor %}
+                                </form>
+                            </div>
+                            <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                            </div>
+                            <div class="chat-messages" id="chat-messages">
+                                {% for message in messages %}
+                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
+                                    <div class="message-content">{{ message.content }}</div>
+                                    <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
                                 </div>
-                                <div class="typing-indicator" id="typing-indicator" style="display: none;">
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
-                                </div>
-                                <div class="chat-input-form">
-                                    <form id="chat-form" class="chat-form">
-                                        <div class="input-group">
-                                            <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="bi bi-send"></i>
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -119,7 +117,7 @@
                     </div>
 
                     <!-- Chat Messages -->
-                    <div class="chat-monitoring-messages custom-scrollbar" id="monitoringMessages">
+                    <div class="chat-monitoring-messages" id="monitoringMessages">
                         <!-- Messages will be loaded here dynamically -->
                     </div>
                 </div>
@@ -183,10 +181,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Format timestamp
     function formatTimestamp(timestamp) {
         const date = new Date(timestamp);
-        return date.toLocaleString();
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Add new message to chat with smooth scrolling
+    // Add new message to chat
     function addMessage(content, timestamp, isAI) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
@@ -196,20 +194,16 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv);
-        
-        // Smooth scroll to the latest message
-        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        chatMessages.insertAdjacentElement('afterbegin', messageDiv);
     }
 
-    // Handle chat form submission with preventDefault
+    // Handle form submission
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = messageInput.value.trim();
         if (message) {
             socket.emit('admin_send_message', { message: message });
             messageInput.value = '';
-            messageInput.focus();
         }
     });
 
@@ -254,12 +248,42 @@ document.addEventListener('DOMContentLoaded', function() {
     // Socket event handlers for monitoring
     socket.on('admin_messages', function(data) {
         monitoringMessages.innerHTML = '';
-        data.messages.forEach(addMonitoringMessage);
+        data.messages.forEach(function(message) {
+            addMonitoringMessage(message);
+        });
     });
 
     socket.on('new_monitored_message', function(message) {
         addMonitoringMessage(message);
     });
+
+    // Add monitoring message function
+    function addMonitoringMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'monitoring-message';
+        messageDiv.dataset.messageId = message.id;
+        
+        let content = message.message_type === 'voice' 
+            ? `<audio controls src="${message.voice_url}" class="w-100"></audio>`
+            : `<div class="message-text">${message.content}</div>`;
+
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <span class="user-email">${message.user_email}</span>
+                <span class="message-type badge bg-info">${message.message_type}</span>
+                <span class="timestamp">${formatTimestamp(message.timestamp)}</span>
+                ${message.flagged ? '<span class="badge bg-warning ms-2">Flagged</span>' : ''}
+            </div>
+            <div class="message-content">${content}</div>
+            <div class="message-footer">
+                <button class="btn btn-sm btn-primary view-details" data-message-id="${message.id}">
+                    <i class="bi bi-eye"></i> View Details
+                </button>
+            </div>
+        `;
+        
+        monitoringMessages.insertBefore(messageDiv, monitoringMessages.firstChild);
+    }
 
     // Handle message details view
     monitoringMessages.addEventListener('click', function(e) {
@@ -320,15 +344,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-/* Chat container styles */
-.text-chat-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-}
-
 /* Custom scrollbar styling */
 .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
