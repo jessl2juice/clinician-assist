@@ -1,10 +1,38 @@
 /* General container spacing */
 .container {
     padding: 2rem 1rem;
-    height: calc(100vh - 140px); /* Account for navbar and footer */
+    height: calc(100vh - 140px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+/* Navbar styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 1rem;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+.navbar-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    margin-right: 0.75rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.brand-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--bs-primary);
+    line-height: 1;
 }
 
 /* Login page specific styling */
@@ -16,7 +44,15 @@
 
 .login-card {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    margin-top: -3rem; /* Move the card higher on the page */
+    margin-top: -3rem;
+}
+
+/* Brand title styling */
+.brand-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--bs-primary);
+    margin-bottom: 0.5rem;
 }
 
 /* Logo styling */
@@ -35,23 +71,6 @@
 }
 
 .ca-logo:hover {
-    transform: scale(1.05);
-}
-
-/* Navbar logo styling */
-.navbar-logo {
-    width: 40px;
-    height: auto;
-    transition: transform 0.2s ease-in-out;
-}
-
-.navbar-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.navbar-brand:hover .navbar-logo {
     transform: scale(1.05);
 }
 
@@ -116,13 +135,6 @@
     line-height: 1.6;
     color: #505c6d;
     margin-bottom: 0;
-}
-
-.brand-title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--bs-primary);
-    margin-bottom: 0.5rem;
 }
 
 /* Form styling */
@@ -275,17 +287,6 @@ h2, .h2 {
     }
 }
 
-/* Navigation styling */
-.navbar {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 0.5rem 0;
-}
-
-.navbar-brand {
-    font-weight: 600;
-    font-size: 1.25rem;
-}
-
 /* Footer styling */
 .footer {
     padding: 1.5rem 0;
@@ -331,6 +332,25 @@ h2, .h2 {
     gap: 1rem;
     height: calc(100vh - 450px);
     min-height: 300px;
+}
+
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
 }
 
 .message {

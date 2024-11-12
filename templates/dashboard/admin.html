@@ -64,7 +64,7 @@
                                 <span class="dot"></span>
                                 <span class="dot"></span>
                             </div>
-                            <div class="chat-messages" id="chat-messages">
+                            <div class="chat-messages custom-scrollbar" id="chat-messages">
                                 {% for message in messages %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
                                     <div class="message-content">{{ message.content }}</div>
@@ -192,8 +192,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv);  // Changed from insertAdjacentElement
-        chatMessages.scrollTop = chatMessages.scrollHeight;  // Add this line
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     // Handle form submission
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Load initial messages
+    // Initial load
     loadMessages();
 });
 </script>

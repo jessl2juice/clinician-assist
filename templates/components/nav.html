@@ -1,9 +1,9 @@
 <nav class="navbar navbar-expand-lg bg-body-tertiary">
     <div class="container-fluid">
-        <div class="navbar-brand d-flex align-items-center">
-            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="navbar-logo me-2">
-            <span>Clinician Assist</span>
-        </div>
+        <a href="{{ url_for('dashboard') }}" class="navbar-brand">
+            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="navbar-logo">
+            <span class="brand-text">Clinician Assist</span>
+        </a>
         {% if current_user.is_authenticated %}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
