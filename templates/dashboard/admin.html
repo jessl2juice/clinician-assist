@@ -65,7 +65,7 @@
                                 <span class="dot"></span>
                             </div>
                             <div class="chat-messages custom-scrollbar" id="chat-messages">
-                                {% for message in messages %}
+                                {% for message in messages|reverse %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
                                     <div class="message-content">{{ message.content }}</div>
                                     <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
@@ -192,8 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatMessages.insertBefore(messageDiv, chatMessages.firstChild);
     }
 
     // Handle form submission
@@ -367,15 +366,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('saveNotes').addEventListener('click', function() {
         const messageId = this.dataset.messageId;
-        const notes = document.getElementById('monitorNotes').value;
+        const notes = document.getElementById('monitorNotes').value.trim();
         socket.emit('admin_save_notes', {
             message_id: messageId,
             notes: notes
         });
+        
+        // Close the modal after saving
+        const modal = bootstrap.Modal.getInstance(document.getElementById('messageDetailsModal'));
+        modal.hide();
     });
-
-    // Initial load
-    loadMessages();
 });
 </script>
 {% endblock %}
