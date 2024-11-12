@@ -123,22 +123,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
+            const responseData = await response.text();
+            let data;
+            try {
+                data = JSON.parse(responseData);
+            } catch (e) {
+                console.error('Error parsing response:', responseData);
+                throw new Error('Invalid server response');
             }
             
-            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} - ${data.error || responseData}`);
+            }
             
             if (data.success) {
                 retryCount = 0; // Reset retry count on success
                 
-                if (data.transcript) {
-                    addVoiceMessage(null, data.transcript, false);
-                }
-                
                 if (data.ai_audio_url) {
-                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
+                    addVoiceMessage(data.ai_audio_url, true);
                 }
                 
                 recordButtonText.textContent = 'Press and Hold to Speak';
@@ -214,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function addVoiceMessage(audioUrl, transcript, isAI) {
+    function addVoiceMessage(audioUrl, isAI) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `voice-message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
         
@@ -229,14 +231,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <i class="bi bi-play-fill"></i>
                         </button>
                     </div>
-                </div>
-            `;
-        }
-        
-        if (transcript) {
-            messageContent += `
-                <div class="voice-transcript">
-                    ${transcript}
                 </div>
             `;
         }
