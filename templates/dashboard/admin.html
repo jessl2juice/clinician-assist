@@ -10,44 +10,58 @@
         <p class="dashboard-tagline">Chat Monitoring Interface</p>
     </div>
 
-    <!-- Chat Monitoring Section -->
-    <div class="card chat-monitoring-card">
-        <div class="card-body">
-            <h5 class="card-title dashboard-subtitle">Chat Monitoring</h5>
-            
-            <!-- Filters -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <select id="userFilter" class="form-select">
-                        <option value="">All Users</option>
-                        {% for user in users %}
-                        <option value="{{ user.id }}">{{ user.email }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select id="messageTypeFilter" class="form-select">
-                        <option value="">All Types</option>
-                        <option value="text">Text Messages</option>
-                        <option value="voice">Voice Messages</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select id="flaggedFilter" class="form-select">
-                        <option value="">All Messages</option>
-                        <option value="true">Flagged Only</option>
-                    </select>
-                </div>
-                <div class="col-md-3 d-flex gap-2">
-                    <button id="refreshChat" class="btn btn-primary flex-grow-1">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </button>
+    <div class="row">
+        <!-- Left Column - Blank Container -->
+        <div class="col-md-6 mb-4 mb-md-0">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title dashboard-subtitle">Future Content</h5>
+                    <p class="text-muted">This space is reserved for future dashboard components.</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Chat Messages -->
-            <div class="chat-monitoring-messages" id="monitoringMessages">
-                <!-- Messages will be loaded here dynamically -->
+        <!-- Right Column - Chat Monitoring -->
+        <div class="col-md-6">
+            <div class="card chat-monitoring-card">
+                <div class="card-body">
+                    <h5 class="card-title dashboard-subtitle">Chat Monitoring</h5>
+                    
+                    <!-- Filters -->
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-2">
+                            <select id="userFilter" class="form-select">
+                                <option value="">All Users</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.email }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <select id="messageTypeFilter" class="form-select">
+                                <option value="">All Types</option>
+                                <option value="text">Text Messages</option>
+                                <option value="voice">Voice Messages</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <select id="flaggedFilter" class="form-select">
+                                <option value="">All Messages</option>
+                                <option value="true">Flagged Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <button id="refreshChat" class="btn btn-primary w-100">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="chat-monitoring-messages" id="monitoringMessages">
+                        <!-- Messages will be loaded here dynamically -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -218,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .chat-monitoring-messages {
-    height: calc(100% - 120px);
+    height: calc(100% - 180px);
     overflow-y: auto;
     padding: 1rem;
     display: flex;
@@ -242,7 +256,8 @@ document.addEventListener('DOMContentLoaded', function() {
 .message-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
     margin-bottom: 0.75rem;
 }
 
@@ -286,8 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     .message-header {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        gap: 0.25rem;
     }
     
     .timestamp {
