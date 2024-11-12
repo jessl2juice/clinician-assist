@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let recordingTimer;
     let startTime;
     let currentlyPlaying = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds
     
     async function setupRecording() {
         try {
@@ -29,21 +32,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             mediaRecorder.onstop = async () => {
                 if (audioChunks.length === 0) {
-                    console.error('No audio data recorded');
-                    recordButtonText.textContent = 'No audio recorded, try again';
-                    setTimeout(() => {
-                        recordButtonText.textContent = 'Press and Hold to Speak';
-                    }, 3000);
+                    const error = new Error('No audio data recorded');
+                    handleRecordingError(error);
                     return;
                 }
 
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
                 if (audioBlob.size === 0) {
-                    console.error('Empty audio blob created');
-                    recordButtonText.textContent = 'Recording failed, try again';
-                    setTimeout(() => {
-                        recordButtonText.textContent = 'Press and Hold to Speak';
-                    }, 3000);
+                    const error = new Error('Empty audio blob created');
+                    handleRecordingError(error);
                     return;
                 }
 
@@ -53,13 +50,29 @@ document.addEventListener('DOMContentLoaded', function() {
             
             return true;
         } catch (err) {
-            console.error('Error accessing microphone:', err);
-            recordButtonText.textContent = err.message || 'Microphone access denied';
-            setTimeout(() => {
-                recordButtonText.textContent = 'Press and Hold to Speak';
-            }, 3000);
+            handleRecordingError(err);
             return false;
         }
+    }
+    
+    function handleRecordingError(error) {
+        console.error('Recording error:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+        
+        let userMessage = 'An error occurred while recording';
+        if (error.name === 'NotAllowedError') {
+            userMessage = 'Microphone access denied. Please allow microphone access and try again.';
+        } else if (error.name === 'NotFoundError') {
+            userMessage = 'No microphone found. Please connect a microphone and try again.';
+        }
+        
+        recordButtonText.textContent = userMessage;
+        setTimeout(() => {
+            recordButtonText.textContent = 'Press and Hold to Speak';
+        }, 3000);
     }
     
     function updateRecordingTime() {
@@ -83,11 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButtonText.textContent = 'Recording...';
             recordingTimer = setInterval(updateRecordingTime, 1000);
         } catch (err) {
-            console.error('Error starting recording:', err);
-            recordButtonText.textContent = err.message || 'Error starting recording';
-            setTimeout(() => {
-                recordButtonText.textContent = 'Press and Hold to Speak';
-            }, 3000);
+            handleRecordingError(err);
         }
     }
     
@@ -100,10 +109,69 @@ document.addEventListener('DOMContentLoaded', function() {
                 mediaRecorder.stop();
             }
         } catch (err) {
-            console.error('Error stopping recording:', err);
-            recordButtonText.textContent = err.message || 'Error stopping recording';
+            handleRecordingError(err);
+        }
+    }
+    
+    async function sendVoiceMessage(audioBlob, isRetry = false) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'voice_message.webm');
+        
+        try {
+            const response = await fetch('/voice-message', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                retryCount = 0; // Reset retry count on success
+                
+                if (data.transcript) {
+                    addVoiceMessage(null, data.transcript, false);
+                }
+                
+                if (data.ai_audio_url) {
+                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
+                }
+                
+                recordButtonText.textContent = 'Press and Hold to Speak';
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
+        } catch (error) {
+            console.error('Error sending voice message:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                retry: isRetry,
+                retryCount: retryCount
+            });
+
+            if (!isRetry && retryCount < MAX_RETRIES) {
+                retryCount++;
+                recordButtonText.textContent = `Retrying... (${retryCount}/${MAX_RETRIES})`;
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                return sendVoiceMessage(audioBlob, true);
+            }
+
+            let userMessage = 'Error processing voice message. Please try again.';
+            if (error.message.includes('OpenAI API')) {
+                userMessage = 'AI service temporarily unavailable. Please try again later.';
+            } else if (error.message.includes('audio format')) {
+                userMessage = 'Unsupported audio format. Please try again.';
+            }
+
+            recordButtonText.textContent = userMessage;
             setTimeout(() => {
                 recordButtonText.textContent = 'Press and Hold to Speak';
+                retryCount = 0; // Reset retry count after error
             }, 3000);
         }
     }
@@ -132,7 +200,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentlyPlaying = audio;
                 })
                 .catch(err => {
-                    console.error('Error playing audio:', err);
+                    console.error('Error playing audio:', {
+                        name: err.name,
+                        message: err.message,
+                        stack: err.stack
+                    });
                     playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
                 });
         } else {
@@ -201,45 +273,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         voiceMessages.appendChild(messageDiv);
         voiceMessages.scrollTop = voiceMessages.scrollHeight;
-    }
-    
-    async function sendVoiceMessage(audioBlob) {
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'voice_message.webm');
-        
-        try {
-            const response = await fetch('/voice-message', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                if (data.transcript) {
-                    addVoiceMessage(null, data.transcript, false);
-                }
-                
-                if (data.ai_audio_url) {
-                    addVoiceMessage(data.ai_audio_url, data.ai_response, true);
-                }
-                
-                recordButtonText.textContent = 'Press and Hold to Speak';
-            } else {
-                throw new Error(data.error || 'Unknown error occurred');
-            }
-        } catch (error) {
-            console.error('Error sending voice message:', error);
-            recordButtonText.textContent = error.message || 'Error sending message';
-            setTimeout(() => {
-                recordButtonText.textContent = 'Press and Hold to Speak';
-            }, 3000);
-        }
     }
     
     // Setup event listeners for push-to-talk

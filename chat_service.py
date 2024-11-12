@@ -1,5 +1,5 @@
 import openai
-from flask import current_app
+from flask import current_app, request
 import os
 from models import ChatMessage
 from extensions import db
@@ -10,7 +10,10 @@ import uuid
 
 class ChatService:
     def __init__(self):
-        self.client = openai.Client(api_key=os.environ.get('OPENAI_API_KEY'))
+        self.api_key = os.environ.get('OPENAI_API_KEY')
+        if not self.api_key:
+            raise ValueError("OpenAI API key not found in environment variables")
+        self.client = openai.Client(api_key=self.api_key)
         
     def get_ai_response(self, user_message, user):
         try:
@@ -35,8 +38,13 @@ class ChatService:
             
             return ai_message
             
+        except openai.APIError as e:
+            error_msg = f"OpenAI API Error: {str(e)}\nType: {type(e).__name__}\nDetails: {getattr(e, 'response', None)}"
+            current_app.logger.error(error_msg)
+            return None
         except Exception as e:
-            current_app.logger.error(f"Error getting AI response: {str(e)}")
+            error_msg = f"Error getting AI response: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
+            current_app.logger.error(error_msg)
             return None
 
     def generate_audio_response(self, text):
@@ -66,7 +74,8 @@ class ChatService:
                 if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
                     raise ValueError("Failed to generate audio file")
             except Exception as e:
-                current_app.logger.error(f"Error streaming audio to file: {str(e)}")
+                error_msg = f"Error streaming audio to file: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
+                current_app.logger.error(error_msg)
                 if os.path.exists(audio_path):
                     os.remove(audio_path)
                 return None
@@ -75,13 +84,15 @@ class ChatService:
             return f'/static/voice_messages/{filename}'
                 
         except Exception as e:
-            current_app.logger.error(f"Error generating audio response: {str(e)}")
+            error_msg = f"Error generating audio response: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
+            current_app.logger.error(error_msg)
             return None
             
     def process_voice_message(self, audio_file, user):
         temp_file = None
         try:
-            current_app.logger.info("Processing voice message")
+            current_app.logger.info(f"Processing voice message for user: {user.id}")
+            current_app.logger.info(f"Request context: Method={request.method}, Path={request.path}, IP={request.remote_addr}")
             
             if not audio_file or not audio_file.content_type:
                 raise ValueError("Invalid audio file")
@@ -114,15 +125,20 @@ class ChatService:
             current_app.logger.info(f"Temporary file created: {temp_file}")
             
             # Process speech to text using the temporary file
-            with open(temp_file, 'rb') as f:
-                transcript = self.client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=f,
-                    response_format="text"
-                )
+            try:
+                with open(temp_file, 'rb') as f:
+                    transcript = self.client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=f,
+                        response_format="text"
+                    )
+            except openai.APIError as e:
+                error_msg = f"OpenAI API Error during transcription: {str(e)}\nType: {type(e).__name__}\nDetails: {getattr(e, 'response', None)}"
+                current_app.logger.error(error_msg)
+                raise ValueError("Failed to transcribe audio: OpenAI API error")
             
             if not transcript:
-                raise ValueError("Failed to transcribe audio")
+                raise ValueError("Failed to transcribe audio: Empty response")
                 
             current_app.logger.info(f"Speech to text completed: {transcript}")
             
@@ -139,7 +155,7 @@ class ChatService:
             ai_response = self.get_ai_response(transcript, user)
             
             if not ai_response:
-                raise ValueError("Failed to get AI response")
+                raise ValueError("Failed to get AI response: OpenAI API error")
             
             # Generate audio response
             current_app.logger.info("Generating audio response")
@@ -156,18 +172,26 @@ class ChatService:
             }
                 
         except ValueError as e:
-            error_msg = str(e)
-            current_app.logger.error(f"Validation error: {error_msg}")
-            return {
-                'success': False,
-                'error': error_msg
-            }
-        except Exception as e:
-            error_msg = f"Error processing voice message: {str(e)}\n{traceback.format_exc()}"
+            error_msg = f"Validation error: {str(e)}\nType: {type(e).__name__}\nTraceback: {traceback.format_exc()}"
             current_app.logger.error(error_msg)
             return {
                 'success': False,
-                'error': str(e) or 'Failed to process voice message'
+                'error': str(e)
+            }
+        except Exception as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'user_id': getattr(user, 'id', None),
+                'request_method': request.method,
+                'request_path': request.path,
+                'remote_addr': request.remote_addr
+            }
+            error_msg = f"Error processing voice message:\nContext: {error_context}\nTraceback: {traceback.format_exc()}"
+            current_app.logger.error(error_msg)
+            return {
+                'success': False,
+                'error': f"Error processing voice message: {type(e).__name__} - {str(e)}"
             }
         finally:
             # Cleanup temporary file
