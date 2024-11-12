@@ -68,8 +68,8 @@
                                 <span class="dot"></span>
                             </div>
                             <div class="chat-messages" id="chat-messages">
-                                {% for message in messages|reverse %}
-                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %}">
+                                {% for message in messages %}
+                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
                                     <div class="message-content">{{ message.content }}</div>
                                     <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
                                 </div>
@@ -111,7 +111,7 @@
                 <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
             `;
             
-            chatMessages.insertBefore(messageDiv, chatMessages.firstChild);
+            chatMessages.insertAdjacentElement('afterbegin', messageDiv);
         }
 
         // Handle form submission

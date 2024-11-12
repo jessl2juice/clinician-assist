@@ -52,7 +52,7 @@ def dashboard():
     elif current_user.role == 'therapist':
         return render_template('dashboard/therapist.html')
     else:
-        chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp).all()
+        chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp.desc()).all()
         messages = [{
             'content': msg.content,
             'timestamp': msg.timestamp,
