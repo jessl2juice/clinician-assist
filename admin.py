@@ -125,7 +125,10 @@ def handle_voice_message():
             'message_type': 'voice',
             'voice_url': result.get('ai_audio_url'),
             'flagged': False,
-            'monitor_notes': ''
+            'monitor_notes': '',
+            'sentiment_label': result.get('sentiment_label'),
+            'sentiment_score': result.get('sentiment_score'),
+            'sentiment_analysis': result.get('sentiment_analysis')
         }, broadcast=True)
         
         return jsonify({
@@ -211,7 +214,10 @@ def handle_get_messages(data):
             'message_type': msg.message_type,
             'voice_url': msg.voice_url,
             'flagged': msg.flagged,
-            'monitor_notes': msg.monitor_notes
+            'monitor_notes': msg.monitor_notes,
+            'sentiment_label': msg.sentiment_label,
+            'sentiment_score': msg.sentiment_score,
+            'sentiment_analysis': msg.sentiment_analysis
         } for msg in messages]
 
         emit('admin_messages', {'messages': message_list})
@@ -233,7 +239,10 @@ def handle_get_message_details(data):
                 'message_type': message.message_type,
                 'voice_url': message.voice_url,
                 'flagged': message.flagged,
-                'monitor_notes': message.monitor_notes
+                'monitor_notes': message.monitor_notes,
+                'sentiment_label': message.sentiment_label,
+                'sentiment_score': message.sentiment_score,
+                'sentiment_analysis': message.sentiment_analysis
             }
             emit('admin_message_details', details)
         else:

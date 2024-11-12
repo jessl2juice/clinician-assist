@@ -273,8 +273,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="message-type badge bg-info">${message.message_type}</span>
                 <span class="timestamp">${formatTimestamp(message.timestamp)}</span>
                 ${message.flagged ? '<span class="badge bg-warning ms-2">Flagged</span>' : ''}
+                ${message.sentiment_label ? 
+                    `<span class="badge ${getSentimentBadgeClass(message.sentiment_label)} ms-2">
+                        ${message.sentiment_label}
+                    </span>` : ''}
             </div>
             <div class="message-content">${content}</div>
+            ${message.sentiment_analysis ? 
+                `<div class="sentiment-analysis text-muted small mt-2">
+                    <i class="bi bi-graph-up"></i> ${message.sentiment_analysis}
+                </div>` : ''}
             <div class="message-footer">
                 <button class="btn btn-sm btn-primary view-details" data-message-id="${message.id}">
                     <i class="bi bi-eye"></i> View Details
@@ -301,6 +309,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const flagButton = document.getElementById('flagMessage');
         const saveButton = document.getElementById('saveNotes');
 
+        let sentimentHtml = '';
+        if (details.sentiment_label) {
+            sentimentHtml = `
+                <div class="sentiment-details mt-3">
+                    <h6>Sentiment Analysis</h6>
+                    <p><strong>Label:</strong> 
+                        <span class="badge ${getSentimentBadgeClass(details.sentiment_label)}">
+                            ${details.sentiment_label}
+                        </span>
+                    </p>
+                    <p><strong>Score:</strong> ${details.sentiment_score}</p>
+                    <p><strong>Analysis:</strong> ${details.sentiment_analysis || 'No detailed analysis available'}</p>
+                </div>
+            `;
+        }
+
         detailsDiv.innerHTML = `
             <p><strong>User:</strong> ${details.user_email}</p>
             <p><strong>Timestamp:</strong> ${formatTimestamp(details.timestamp)}</p>
@@ -311,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     : `<div class="message-text">${details.content}</div>`
                 }
             </div>
+            ${sentimentHtml}
         `;
 
         notesTextarea.value = details.monitor_notes || '';
@@ -319,6 +344,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         modal.show();
     });
+
+    // Add helper function for sentiment badge styling
+    function getSentimentBadgeClass(sentiment) {
+        switch(sentiment.toLowerCase()) {
+            case 'positive':
+                return 'bg-success';
+            case 'negative':
+                return 'bg-danger';
+            default:
+                return 'bg-secondary';
+        }
+    }
 
     // Handle flagging and saving notes
     document.getElementById('flagMessage').addEventListener('click', function() {
@@ -483,6 +520,20 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-top: 0.5rem;
     display: flex;
     justify-content: flex-end;
+}
+
+/* Sentiment analysis styling */
+.sentiment-analysis {
+    padding: 0.5rem;
+    border-left: 3px solid #dee2e6;
+    margin-top: 0.5rem;
+}
+
+.sentiment-details {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
 }
 </style>
 {% endblock %}

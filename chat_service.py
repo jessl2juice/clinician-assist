@@ -16,6 +16,33 @@ class ChatService:
             raise ValueError("OpenAI API key not found in environment variables")
         self.client = openai.Client(api_key=self.api_key)
         
+    def analyze_sentiment(self, text):
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4",
+                messages=[{
+                    "role": "system",
+                    "content": "You are a sentiment analysis expert. Analyze the following text and provide a JSON response with: sentiment_score (float between -1 and 1), sentiment_label (Positive, Negative, or Neutral), and a brief sentiment_analysis explanation."
+                }, {
+                    "role": "user",
+                    "content": text
+                }],
+                response_format={"type": "json_object"}
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return result
+            
+        except Exception as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': traceback.format_exc(),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            current_app.logger.error(f"Error analyzing sentiment: {json.dumps(error_context)}")
+            return None
+        
     def get_ai_response(self, user_message, user):
         try:
             start_time = datetime.utcnow()
@@ -33,10 +60,18 @@ class ChatService:
             
             ai_message = response.choices[0].message.content
             
+            # Analyze sentiment before saving
+            sentiment_result = self.analyze_sentiment(user_message)
+            
             chat_message = ChatMessage()
             chat_message.user_id = user.id
             chat_message.is_ai_response = True
             chat_message.content = ai_message
+            
+            if sentiment_result:
+                chat_message.sentiment_score = sentiment_result.get('sentiment_score')
+                chat_message.sentiment_label = sentiment_result.get('sentiment_label')
+                chat_message.sentiment_analysis = sentiment_result.get('sentiment_analysis')
             
             db.session.add(chat_message)
             db.session.commit()

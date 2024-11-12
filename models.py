@@ -49,6 +49,9 @@ class ChatMessage(db.Model):
     monitored = db.Column(db.Boolean, default=False)  # For admin monitoring
     flagged = db.Column(db.Boolean, default=False)  # For flagging concerning messages
     monitor_notes = db.Column(db.Text)  # Admin notes on monitored messages
+    sentiment_score = db.Column(db.Float)  # Sentiment score from -1 to 1
+    sentiment_label = db.Column(db.String(50))  # Positive, Negative, or Neutral
+    sentiment_analysis = db.Column(db.Text)  # Detailed sentiment analysis
 
     def set_content(self, content):
         self.content = content
