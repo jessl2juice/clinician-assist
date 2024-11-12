@@ -23,7 +23,16 @@ Config.init_db(app)
 db.init_app(app)
 login_manager.init_app(app)
 flask_session.init_app(app)
-socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio.init_app(app, 
+    cors_allowed_origins="*", 
+    async_mode='eventlet',
+    ping_timeout=30,
+    ping_interval=15,
+    reconnection=True,
+    reconnection_attempts=5,
+    reconnection_delay=1000,
+    reconnection_delay_max=5000
+)
 chat_service = ChatService()
 
 login_manager.login_view = 'auth.login'
@@ -69,7 +78,7 @@ def dashboard():
 @login_required
 def handle_voice_message():
     try:
-        if current_user.role not in ['client', 'therapist']:
+        if current_user.role not in ['client', 'therapist', 'admin']:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         
         if 'audio' not in request.files:
@@ -111,11 +120,23 @@ def serve_static(filename):
 def handle_connect():
     if not current_user.is_authenticated:
         return False
+    app.logger.info(f"User {current_user.email} connected")
     return True
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    if current_user.is_authenticated:
+        app.logger.info(f"User {current_user.email} disconnected")
+
+@socketio.on_error()
+def error_handler(e):
+    app.logger.error(f"SocketIO error: {str(e)}")
+    return False
 
 @socketio.on('send_message')
 def handle_message(data):
     if not current_user.is_authenticated or current_user.role not in ['client', 'therapist']:
+        emit('error', {'message': 'Unauthorized'})
         return
     
     try:

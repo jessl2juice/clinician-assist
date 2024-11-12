@@ -143,97 +143,103 @@ def handle_voice_message():
 # Socket.IO event handlers for admin chat
 @socketio.on('admin_send_message')
 @login_required
+@admin_required
 def handle_admin_message(data):
-    if current_user.role != 'admin':
-        return
-
-    # Save admin message
-    message = ChatMessage()
-    message.user_id = current_user.id
-    message.content = data['message']
-    message.is_ai_response = False
-    message.message_type = 'text'
-    db.session.add(message)
-    db.session.commit()
-
-    # Emit the message
-    emit('new_message', {
-        'content': message.content,
-        'timestamp': message.timestamp.isoformat(),
-        'is_ai_response': False,
-        'message_type': 'text'
-    })
-
-    # Get and emit AI response
-    emit('typing_indicator', {'typing': True})
-    ai_response = chat_service.get_ai_response(data['message'], current_user)
-    emit('typing_indicator', {'typing': False})
-
-    if ai_response:
-        ai_message = ChatMessage()
-        ai_message.user_id = current_user.id
-        ai_message.content = ai_response
-        ai_message.is_ai_response = True
-        ai_message.message_type = 'text'
-        db.session.add(ai_message)
+    try:
+        # Save admin message
+        message = ChatMessage()
+        message.user_id = current_user.id
+        message.content = data['message']
+        message.is_ai_response = False
+        message.message_type = 'text'
+        db.session.add(message)
         db.session.commit()
 
+        # Emit the message
         emit('new_message', {
-            'content': ai_response,
-            'timestamp': datetime.utcnow().isoformat(),
-            'is_ai_response': True,
+            'content': message.content,
+            'timestamp': message.timestamp.isoformat(),
+            'is_ai_response': False,
             'message_type': 'text'
         })
 
-# Socket.IO event handlers for monitoring
+        # Get and emit AI response
+        emit('typing_indicator', {'typing': True})
+        ai_response = chat_service.get_ai_response(data['message'], current_user)
+        emit('typing_indicator', {'typing': False})
+
+        if ai_response:
+            ai_message = ChatMessage()
+            ai_message.user_id = current_user.id
+            ai_message.content = ai_response
+            ai_message.is_ai_response = True
+            ai_message.message_type = 'text'
+            db.session.add(ai_message)
+            db.session.commit()
+
+            emit('new_message', {
+                'content': ai_response,
+                'timestamp': datetime.utcnow().isoformat(),
+                'is_ai_response': True,
+                'message_type': 'text'
+            })
+        else:
+            emit('error', {'message': 'Failed to get AI response'})
+    except Exception as e:
+        emit('error', {'message': f'Failed to process message: {str(e)}'})
+
 @socketio.on('admin_get_messages')
 @login_required
+@admin_required
 def handle_get_messages(data):
-    if current_user.role != 'admin':
-        return
+    try:
+        query = ChatMessage.query.join(User).order_by(desc(ChatMessage.timestamp))
 
-    query = ChatMessage.query.join(User).order_by(desc(ChatMessage.timestamp))
+        if data.get('user_id'):
+            query = query.filter(ChatMessage.user_id == data['user_id'])
+        if data.get('message_type'):
+            query = query.filter(ChatMessage.message_type == data['message_type'])
+        if data.get('flagged') == 'true':
+            query = query.filter(ChatMessage.flagged == True)
 
-    if data.get('user_id'):
-        query = query.filter(ChatMessage.user_id == data['user_id'])
-    if data.get('message_type'):
-        query = query.filter(ChatMessage.message_type == data['message_type'])
-    if data.get('flagged') == 'true':
-        query = query.filter(ChatMessage.flagged == True)
+        messages = query.limit(50).all()
+        message_list = [{
+            'id': msg.id,
+            'content': msg.content,
+            'user_email': msg.user.email,
+            'timestamp': msg.timestamp.isoformat(),
+            'message_type': msg.message_type,
+            'voice_url': msg.voice_url,
+            'flagged': msg.flagged,
+            'monitor_notes': msg.monitor_notes
+        } for msg in messages]
 
-    messages = query.limit(50).all()
-    message_list = [{
-        'id': msg.id,
-        'content': msg.content,
-        'user_email': msg.user.email,
-        'timestamp': msg.timestamp.isoformat(),
-        'message_type': msg.message_type,
-        'voice_url': msg.voice_url,
-        'flagged': msg.flagged,
-        'monitor_notes': msg.monitor_notes
-    } for msg in messages]
-
-    emit('admin_messages', {'messages': message_list})
+        emit('admin_messages', {'messages': message_list})
+    except Exception as e:
+        emit('error', {'message': f'Failed to fetch messages: {str(e)}'})
 
 @socketio.on('admin_get_message_details')
 @login_required
+@admin_required
 def handle_get_message_details(data):
-    if current_user.role != 'admin':
-        return
-
-    message = ChatMessage.query.get(data['message_id'])
-    if message:
-        details = {
-            'id': message.id,
-            'content': message.content,
-            'user_email': message.user.email,
-            'timestamp': message.timestamp.isoformat(),
-            'message_type': message.message_type,
-            'voice_url': message.voice_url,
-            'flagged': message.flagged,
-            'monitor_notes': message.monitor_notes
-        }
-        emit('admin_message_details', details)
+    try:
+        message = ChatMessage.query.get(data['message_id'])
+        if message:
+            details = {
+                'id': message.id,
+                'content': message.content,
+                'user_email': message.user.email,
+                'timestamp': message.timestamp.isoformat(),
+                'message_type': message.message_type,
+                'voice_url': message.voice_url,
+                'flagged': message.flagged,
+                'monitor_notes': message.monitor_notes
+            }
+            emit('admin_message_details', details)
+        else:
+            emit('error', {'message': 'Message not found'})
+    except Exception as e:
+        emit('error', {'message': f'Failed to fetch message details: {str(e)}'})
 
 @socketio.on('admin_flag_message')
 @login_required

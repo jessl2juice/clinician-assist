@@ -162,7 +162,20 @@
 <!-- Chat and monitoring scripts -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const socket = io();
+    // Socket.IO connection with error handling and reconnection logic
+    const socket = io({
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+    });
+    
+    // Connection status elements
+    const connectionStatus = document.createElement('div');
+    connectionStatus.className = 'alert alert-info connection-status';
+    connectionStatus.style.display = 'none';
+    document.querySelector('.card-body').insertBefore(connectionStatus, document.querySelector('.chat-messages'));
     
     // Chat interface elements
     const chatMessages = document.getElementById('chat-messages');
@@ -478,6 +491,19 @@ document.addEventListener('DOMContentLoaded', function() {
     .btn-record i {
         font-size: 1.5rem;
     }
+}
+
+.connection-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 400px;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.alert-dismissible {
+    margin-bottom: 1rem;
 }
 </style>
 {% endblock %}
