@@ -20,7 +20,7 @@ Config.init_db(app)
 db.init_app(app)
 login_manager.init_app(app)
 flask_session.init_app(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 chat_service = ChatService()
 
 login_manager.login_view = 'auth.login'
@@ -142,4 +142,9 @@ def handle_message(data):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    socketio.run(app, host='0.0.0.0', port=5000, use_reloader=True, log_output=True)
+    socketio.run(app, 
+        host='0.0.0.0',
+        port=5000,
+        allow_unsafe_werkzeug=True,
+        debug=True
+    )
