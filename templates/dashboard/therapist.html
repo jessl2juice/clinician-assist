@@ -1,11 +1,137 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Therapist Dashboard</h1>
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Welcome, {{ current_user.email }}</h5>
-        <p class="card-text">You are logged in as a therapist.</p>
+<div class="container">
+    <div class="text-center mb-4">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/CA Logo No Background.png') }}" alt="Clinician Assist Logo" class="ca-logo dashboard-logo">
+        </div>
+        <h1 class="welcome-title">Therapist Dashboard</h1>
+        <p class="dashboard-tagline">Patient Communication Interface</p>
+    </div>
+    
+    <div class="row flex-grow-1">
+        <div class="col-md-8 mx-auto">
+            <div class="chat-card card">
+                <div class="card-body">
+                    <h5 class="card-title dashboard-subtitle">Patient Communication</h5>
+                    
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="chatTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="voice-tab" data-bs-toggle="tab" data-bs-target="#voice-chat" type="button" role="tab" aria-controls="voice-chat" aria-selected="true">
+                                <i class="bi bi-mic"></i> Voice Chat
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-chat" type="button" role="tab" aria-controls="text-chat" aria-selected="false">
+                                <i class="bi bi-chat-text"></i> Text Chat
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="chatTabsContent">
+                        <!-- Voice Chat Tab -->
+                        <div class="tab-pane fade show active" id="voice-chat" role="tabpanel" aria-labelledby="voice-tab">
+                            <div class="voice-chat-container">
+                                <div class="voice-controls text-center mb-4">
+                                    <div class="record-button-container">
+                                        <button id="recordButton" class="btn btn-lg btn-record">
+                                            <i class="bi bi-mic"></i>
+                                        </button>
+                                        <div class="record-text">Press and Hold to Speak</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="voice-messages" id="voice-messages">
+                                    <!-- Voice messages will be added here dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Text Chat Tab -->
+                        <div class="tab-pane fade" id="text-chat" role="tabpanel" aria-labelledby="text-tab">
+                            <div class="chat-input-form">
+                                <form id="chat-form">
+                                    <div class="input-group">
+                                        <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-send"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                            </div>
+                            <div class="chat-messages" id="chat-messages">
+                                {% for message in messages %}
+                                <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
+                                    <div class="message-content">{{ message.content }}</div>
+                                    <div class="message-timestamp">{{ message.timestamp.strftime('%I:%M %p') }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Add Socket.IO client -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<!-- Add voice recording script -->
+<script src="{{ url_for('static', filename='js/voice-chat.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const socket = io();
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        // Format timestamp
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Add new message to chat
+        function addMessage(content, timestamp, isAI) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isAI ? 'ai-message' : 'user-message'} message-appear`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">${content}</div>
+                <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
+            `;
+            
+            chatMessages.insertAdjacentElement('afterbegin', messageDiv);
+        }
+
+        // Handle form submission
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('send_message', { message: message });
+                messageInput.value = '';
+            }
+        });
+
+        // Socket.IO event handlers
+        socket.on('new_message', function(data) {
+            addMessage(data.content, data.timestamp, data.is_ai_response);
+        });
+
+        socket.on('typing_indicator', function(data) {
+            typingIndicator.style.display = data.typing ? 'block' : 'none';
+        });
+    });
+</script>
 {% endblock %}

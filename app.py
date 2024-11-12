@@ -49,8 +49,6 @@ def index():
 def dashboard():
     if current_user.role == 'admin':
         return render_template('dashboard/admin.html')
-    elif current_user.role == 'therapist':
-        return render_template('dashboard/therapist.html')
     else:
         chat_messages = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp.desc()).all()
         messages = [{
@@ -58,26 +56,29 @@ def dashboard():
             'timestamp': msg.timestamp,
             'is_ai_response': msg.is_ai_response
         } for msg in chat_messages]
-        return render_template('dashboard/client.html', messages=messages)
+        if current_user.role == 'therapist':
+            return render_template('dashboard/therapist.html', messages=messages)
+        else:
+            return render_template('dashboard/client.html', messages=messages)
 
 @app.route('/voice-message', methods=['POST'])
 @login_required
 def handle_voice_message():
     try:
-        if current_user.role != 'client':
+        if current_user.role not in ['client', 'therapist']:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         
         if 'audio' not in request.files:
             return jsonify({'success': False, 'error': 'No audio file provided'}), 400
         
         audio_file = request.files['audio']
-        if not audio_file.filename:
+        if not audio_file or not audio_file.filename:
             return jsonify({'success': False, 'error': 'Empty audio file'}), 400
         
         # Process the voice message
         result = chat_service.process_voice_message(audio_file, current_user)
         
-        if result.get('success', False):
+        if result and result.get('success', False):
             return jsonify({
                 'success': True,
                 'transcript': result.get('transcript'),
@@ -94,7 +95,7 @@ def handle_voice_message():
         app.logger.error(f"Error in handle_voice_message: {str(e)}")
         return jsonify({
             'success': False,
-            'error': 'An unexpected error occurred'
+            'error': f'An unexpected error occurred: {str(e)}'
         }), 500
 
 @app.route('/static/<path:filename>')
@@ -103,7 +104,7 @@ def serve_static(filename):
 
 @socketio.on('send_message')
 def handle_message(data):
-    if not current_user.is_authenticated or current_user.role != 'client':
+    if not current_user.is_authenticated or current_user.role not in ['client', 'therapist']:
         return
     
     try:
@@ -125,11 +126,14 @@ def handle_message(data):
         ai_response = chat_service.get_ai_response(data['message'], current_user)
         emit('typing_indicator', {'typing': False})
         
-        emit('new_message', {
-            'content': ai_response,
-            'timestamp': datetime.utcnow().isoformat(),
-            'is_ai_response': True
-        })
+        if ai_response:
+            emit('new_message', {
+                'content': ai_response,
+                'timestamp': datetime.utcnow().isoformat(),
+                'is_ai_response': True
+            })
+        else:
+            emit('error', {'message': 'Failed to get AI response'})
         
     except Exception as e:
         app.logger.error(f"Error in handle_message: {str(e)}")
