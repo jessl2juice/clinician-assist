@@ -42,16 +42,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (audioChunks.length === 0) {
                     console.error('No audio data recorded');
+                    recordButtonText.textContent = 'No audio recorded. Please try again.';
+                    setTimeout(() => {
+                        recordButtonText.textContent = 'Press and Hold to Speak';
+                    }, 2000);
                     return;
                 }
 
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
                 if (audioBlob.size < 1000) {
                     console.error('Audio data too small');
+                    recordButtonText.textContent = 'Recording too quiet. Please speak closer to the microphone.';
+                    setTimeout(() => {
+                        recordButtonText.textContent = 'Press and Hold to Speak';
+                    }, 2000);
                     return;
                 }
 
                 await sendVoiceMessage(audioBlob);
+                audioChunks = [];
             };
             
             return true;
@@ -78,6 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
             userMessage = 'Microphone access denied. Please allow microphone access and try again.';
         } else if (error.name === 'NotFoundError') {
             userMessage = 'No microphone found. Please connect a microphone and try again.';
+        } else if (error.name === 'NotReadableError') {
+            userMessage = 'Microphone is busy or not responding. Please try again.';
         }
         
         recordButtonText.textContent = userMessage;
@@ -96,12 +107,12 @@ document.addEventListener('DOMContentLoaded', function() {
     async function startRecording() {
         if (mediaRecorder?.state === 'recording') return;
         
-        if (!mediaRecorder) {
-            const setup = await setupRecording();
-            if (!setup) return;
-        }
-        
         try {
+            if (!mediaRecorder) {
+                const setup = await setupRecording();
+                if (!setup) return;
+            }
+            
             audioChunks = [];
             mediaRecorder.start(100);
             startTime = Date.now();
@@ -109,7 +120,11 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButtonText.textContent = 'Recording...';
             recordingTimer = setInterval(updateRecordingTime, 1000);
         } catch (err) {
-            console.error('Start recording error:', err);
+            console.error('Start recording error:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             handleRecordingError(err);
         }
     }
@@ -122,7 +137,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 mediaRecorder.stop();
             }
         } catch (err) {
-            console.error('Stop recording error:', err);
+            console.error('Stop recording error:', {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            });
             handleRecordingError(err);
         }
     }
@@ -135,7 +154,10 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButtonText.textContent = 'Sending message...';
             const response = await fetch('/voice-message', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
             
             const responseText = await response.text();
@@ -146,9 +168,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) {
                 console.error('Error parsing response:', {
                     responseText,
-                    error: e.message
+                    error: e.message,
+                    stack: e.stack
                 });
-                throw new Error('Invalid server response');
+                throw new Error(`Invalid server response: ${responseText}`);
             }
             
             if (!response.ok) {
@@ -160,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.ai_audio_url) {
                     addVoiceMessage(data.ai_audio_url);
                 }
+                recordButtonText.textContent = 'Message sent successfully';
             } else {
                 throw new Error(data.error || 'Unknown error occurred');
             }
@@ -167,7 +191,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error sending voice message:', {
                 name: error.name,
                 message: error.message,
-                stack: error.stack
+                stack: error.stack,
+                retryCount: retryCount
             });
 
             if (retryCount < MAX_RETRIES) {
@@ -187,20 +212,34 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function stopAllAudio() {
         audioElements.forEach(audio => {
-            audio.pause();
-            audio.currentTime = 0;
+            if (audio && typeof audio.pause === 'function') {
+                audio.pause();
+                audio.currentTime = 0;
+            }
         });
         audioElements.clear();
     }
     
     function addVoiceMessage(audioUrl) {
-        if (!audioUrl) return;
+        if (!audioUrl) {
+            console.error('Invalid audio URL provided');
+            return;
+        }
         
         const audio = new Audio(audioUrl);
         const messageId = Date.now().toString();
         audioElements.set(messageId, audio);
         
         audio.addEventListener('ended', () => {
+            audioElements.delete(messageId);
+        });
+        
+        audio.addEventListener('error', (err) => {
+            console.error('Audio playback error:', {
+                name: err.type,
+                message: err.message,
+                stack: err.error?.stack
+            });
             audioElements.delete(messageId);
         });
         
