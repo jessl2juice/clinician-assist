@@ -64,7 +64,7 @@
                                 <span class="dot"></span>
                                 <span class="dot"></span>
                             </div>
-                            <div class="chat-messages custom-scrollbar" id="chat-messages">
+                            <div class="chat-messages" id="chat-messages">
                                 {% for message in messages %}
                                 <div class="message {% if message.is_ai_response %}ai-message{% else %}user-message{% endif %} message-appear">
                                     <div class="message-content">{{ message.content }}</div>
@@ -192,8 +192,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="message-timestamp">${formatTimestamp(timestamp)}</div>
         `;
         
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatMessages.appendChild(messageDiv);  // Changed from insertAdjacentElement
+        chatMessages.scrollTop = chatMessages.scrollHeight;  // Add this line
     }
 
     // Handle form submission
@@ -204,28 +204,6 @@ document.addEventListener('DOMContentLoaded', function() {
             socket.emit('admin_send_message', { message: message });
             messageInput.value = '';
         }
-    });
-
-    // Socket.IO event handlers for chat
-    socket.on('connect', () => {
-        console.log('Connected to server');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-    });
-
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
-
-    socket.on('new_message', function(data) {
-        addMessage(data.content, data.timestamp, data.is_ai_response);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    });
-
-    socket.on('typing_indicator', function(data) {
-        typingIndicator.style.display = data.typing ? 'block' : 'none';
     });
 
     // Load monitoring messages with current filters
@@ -244,6 +222,27 @@ document.addEventListener('DOMContentLoaded', function() {
     messageTypeFilter.addEventListener('change', loadMessages);
     flaggedFilter.addEventListener('change', loadMessages);
     refreshButton.addEventListener('click', loadMessages);
+
+    // Socket event handlers for chat
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
+    });
+
+    socket.on('new_message', function(data) {
+        addMessage(data.content, data.timestamp, data.is_ai_response);
+    });
+
+    socket.on('typing_indicator', function(data) {
+        typingIndicator.style.display = data.typing ? 'block' : 'none';
+    });
 
     // Socket event handlers for monitoring
     socket.on('admin_messages', function(data) {
@@ -373,13 +372,9 @@ document.addEventListener('DOMContentLoaded', function() {
             message_id: messageId,
             notes: notes
         });
-        
-        // Close the modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('messageDetailsModal'));
-        modal.hide();
     });
 
-    // Initial load of messages
+    // Load initial messages
     loadMessages();
 });
 </script>
